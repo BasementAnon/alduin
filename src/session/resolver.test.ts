@@ -12,7 +12,7 @@ describe('SessionResolver', () => {
   });
 
   afterEach(() => {
-    store.close();
+    store?.close();
   });
 
   it('creates a new session on first contact', () => {

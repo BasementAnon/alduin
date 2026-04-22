@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { orchestratorConfigSchema, executorConfigSchema, fallbacksSchema } from './models.js';
 import { providersSchema } from './providers.js';
 import { channelsConfigSchema } from './channels.js';
+import { authConfigSchema } from './auth.js';
 import {
   routingConfigSchema,
   budgetConfigSchema,
@@ -23,6 +24,7 @@ export * from './models.js';
 export * from './providers.js';
 export * from './channels.js';
 export * from './agents.js';
+export * from './auth.js';
 
 export const alduinConfigSchema = z.object({
   /** Catalog revision this config was validated against. */
@@ -41,7 +43,8 @@ export const alduinConfigSchema = z.object({
   tenants: tenantsConfigSchema.optional(),
   ingestion: ingestionConfigSchema.optional(),
   plugins: pluginsConfigSchema.optional(),
-});
+  auth: authConfigSchema.optional(),
+}).strict();
 
 export type AlduinConfigInput = z.input<typeof alduinConfigSchema>;
 

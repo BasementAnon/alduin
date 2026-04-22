@@ -74,7 +74,7 @@ describe('connect command', () => {
   });
 
   afterEach(() => {
-    vault.close();
+    vault?.close();
     vi.unstubAllGlobals();
   });
 

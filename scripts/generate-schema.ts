@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import zodToJsonSchema from 'zod-to-json-schema';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 import { alduinConfigSchema } from '../src/config/schema/index.js';
 import { SCHEMA_HINTS, isSensitivePath } from '../src/config/schema-hints.js';
@@ -47,6 +47,7 @@ const SCHEMA_SOURCES = [
   'src/config/schema/providers.ts',
   'src/config/schema/channels.ts',
   'src/config/schema/agents.ts',
+  'src/config/schema/auth.ts',
   'src/config/schema/index.ts',
   'src/config/schema-hints.ts',
 ];

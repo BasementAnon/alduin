@@ -128,13 +128,27 @@ interface PolicyFile {
  * Default behaviour: group chats deny writes unless explicitly allowed.
  * Owner and admin roles get the permissive default verdict.
  */
+export interface PolicyEngineOptions {
+  /**
+   * When true, owner/admin roles bypass ALL policy rules — including
+   * cost_ceiling_usd. Legacy behaviour; defaults to false.
+   *
+   * When false, owner/admin roles skip allowlist / tier / denial rules but
+   * still obey any matching rule that sets `cost_ceiling_usd`. The default
+   * verdict's cost_ceiling_usd also still applies.
+   */
+  privilegedBypassBudgets?: boolean;
+}
+
 export class PolicyEngine {
   private rules: PolicyRule[] = [];
   private defaultVerdict: PolicyVerdict;
   private filePath: string | null = null;
+  private privilegedBypassBudgets: boolean;
 
-  constructor(policyFilePath?: string) {
+  constructor(policyFilePath?: string, options: PolicyEngineOptions = {}) {
     this.defaultVerdict = { ...DEFAULT_POLICY_VERDICT };
+    this.privilegedBypassBudgets = options.privilegedBypassBudgets ?? false;
 
     if (policyFilePath) {
       this.filePath = policyFilePath;
@@ -154,17 +168,35 @@ export class PolicyEngine {
    *
    * Evaluation order:
    * 1. Start with the default verdict
-   * 2. Owners and admins always get the permissive default
-   * 3. Apply matching rules in order (later rules override earlier)
+   * 2. Owners and admins get the permissive default for allowlist/tier/denial
+   *    fields, but any matching rule that sets `cost_ceiling_usd` still
+   *    applies to them (unless `privilegedBypassBudgets` is true, in which
+   *    case they bypass all rules — legacy behaviour, opt-in)
+   * 3. Apply matching rules in order for non-privileged roles
+   *    (later rules override earlier)
    * 4. Group chats default-deny writes unless a rule explicitly allows
    */
   evaluate(context: PolicyContext): PolicyVerdict {
-    // TODO(security): This short-circuit bypasses cost ceilings and all rules
-    // for privileged roles. See the DESIGN NOTE at the top of this file for a
-    // proposed hardening that applies `applies_to_privileged` rules and enforces
-    // cost_ceiling_usd universally. Blocked on product decision.
-    if (context.user_role === 'owner' || context.user_role === 'admin') {
+    const isPrivileged =
+      context.user_role === 'owner' || context.user_role === 'admin';
+
+    // Legacy full-bypass: opt-in via `auth.privileged_bypass_budgets: true`.
+    if (isPrivileged && this.privilegedBypassBudgets) {
       return { ...this.defaultVerdict, allowed: true };
+    }
+
+    // Privileged-but-budgeted: allow everything by default, but a rule that
+    // explicitly sets `cost_ceiling_usd` still binds the user. This protects
+    // against a compromised owner token draining the budget.
+    if (isPrivileged) {
+      let verdict: PolicyVerdict = { ...this.defaultVerdict, allowed: true };
+      for (const rule of this.rules) {
+        if (!this.ruleMatches(rule, context)) continue;
+        if (rule.cost_ceiling_usd !== undefined) {
+          verdict = { ...verdict, cost_ceiling_usd: rule.cost_ceiling_usd };
+        }
+      }
+      return verdict;
     }
 
     let verdict: PolicyVerdict = { ...this.defaultVerdict };

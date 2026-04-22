@@ -184,7 +184,10 @@ export async function createRuntime(
   // ── Auth + audit ──────────────────────────────────────────────────────────
   const authDb = openSqlite(dbPath);
   const roleResolver = RoleResolver.create(authDb);
-  const policyEngine = new PolicyEngine(existsSync(POLICY_FILE) ? POLICY_FILE : undefined);
+  const policyEngine = new PolicyEngine(
+    existsSync(POLICY_FILE) ? POLICY_FILE : undefined,
+    { privilegedBypassBudgets: config.auth?.privileged_bypass_budgets ?? false }
+  );
 
   // Audit HMAC key — independent from the vault master secret.
   // Retrieved via keychain (keytar) or ALDUIN_AUDIT_HMAC_KEY env var.

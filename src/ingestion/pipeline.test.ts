@@ -50,7 +50,7 @@ describe('IngestionPipeline', () => {
   });
 
   afterEach(() => {
-    blobStore.close();
+    blobStore?.close();
     delete process.env['ALDUIN_ALLOW_LOCAL_INGESTION'];
     rmSync(tmpDir, { recursive: true, force: true });
     vi.unstubAllGlobals();

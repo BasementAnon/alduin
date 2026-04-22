@@ -162,11 +162,3 @@ ingestion:
   stt_enabled: false           # requires OpenAI Whisper (uses OPENAI_API_KEY)
   attachment_timeout_ms: 30000 # per-attachment timeout before falling back to stub
   ttl_hours: 24                # blob expiry
-
-# ── Connectors (optional) ─────────────────────────────────────────────────────
-# Credentials for connectors are stored in the vault (CredentialVault + OS keychain).
-# Run `alduin init` or `/connect google-calendar` in Telegram to link.
-# connectors:
-#   google-calendar:
-#     client_id_vault_key: tenants/default/connectors/google-calendar/client_id
-#     client_secret_vault_key: tenants/default/connectors/google-calendar/client_secret

@@ -10,7 +10,7 @@ describe('CredentialVault', () => {
   });
 
   afterEach(() => {
-    vault.close();
+    vault?.close();
   });
 
   it('stores and retrieves a credential (encrypted round-trip)', () => {
