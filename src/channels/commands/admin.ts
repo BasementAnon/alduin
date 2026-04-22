@@ -9,6 +9,7 @@ import type { MemoryManager } from '../../memory/manager.js';
 import type { SessionStore } from '../../session/store.js';
 import type { ModelCatalog } from '../../catalog/catalog.js';
 import type { PluginRegistry } from '../../plugins/registry.js';
+import { validatePluginId } from '../../plugins/validate-id.js';
 
 export interface AdminCommandContext {
   tenant_id: string;
@@ -220,28 +221,58 @@ function handleBudget(
     }
 
     // Legacy: /alduin budget set <scope> <usd>
+    //
+    // H-12: previously a missing / unrecognized scope silently fell through,
+    // writing an audit entry (and reporting success to the user) while the
+    // budget was never actually set. Reject anything that isn't a known
+    // `user:<id>` / `group:<id>` scope with a usage hint.
     const scope = subAction;
     const usdStr = args[2];
     if (!scope || !usdStr) {
-      return { handled: true, reply: 'Usage: /alduin budget set [daily|warn|per_model <model>] <value>' };
+      return {
+        handled: true,
+        reply: 'Usage: /alduin budget set [daily|warn|per_model <model>|user:<id>|group:<id>] <value>',
+      };
     }
     const usd = parseFloat(usdStr);
     if (!Number.isFinite(usd) || usd <= 0) {
       return { handled: true, reply: 'Budget must be a positive number.' };
     }
 
-    if (deps.scopedBudget) {
-      if (scope.startsWith('user:')) {
-        deps.scopedBudget.setScopedLimit('user', scope.slice(5), usd);
-      } else if (scope.startsWith('group:')) {
-        deps.scopedBudget.setScopedLimit('group', scope.slice(6), usd);
-      }
+    const scopeKind: 'user' | 'group' | null = scope.startsWith('user:')
+      ? 'user'
+      : scope.startsWith('group:')
+      ? 'group'
+      : null;
+    if (!scopeKind) {
+      return {
+        handled: true,
+        reply:
+          `Unknown budget scope "${scope}". ` +
+          `Usage: /alduin budget set [daily|warn|per_model <model>|user:<id>|group:<id>] <value>`,
+      };
     }
+
+    const scopeId = scope.slice(scopeKind.length + 1); // drop "user:" / "group:"
+    if (scopeId.length === 0) {
+      return {
+        handled: true,
+        reply: `Scope id is required — e.g. /alduin budget set ${scopeKind}:<id> <usd>`,
+      };
+    }
+
+    if (!deps.scopedBudget) {
+      return {
+        handled: true,
+        reply: 'Scoped budgets are not available in this configuration.',
+      };
+    }
+    deps.scopedBudget.setScopedLimit(scopeKind, scopeId, usd);
 
     deps.auditLog.log({
       actor: ctx.user_id,
-      action: `budget.set.${scope}`,
-      new_value: `$${usd.toFixed(2)}`,
+      action: `budget.set.${scopeKind}`,
+      new_value: `${scopeId}=$${usd.toFixed(2)}`,
     });
 
     return { handled: true, reply: `Budget for ${scope} set to $${usd.toFixed(2)}.` };
@@ -500,10 +531,22 @@ function handlePlugins(
   }
 
   if (action === 'install') {
-    const pluginId = args[1];
-    if (!pluginId) {
+    const rawId = args[1];
+    if (!rawId) {
       return { handled: true, reply: 'Usage: /alduin plugins install <plugin_id>' };
     }
+    // M-16: reject shell metacharacters and path-traversal before the
+    // id ever lands in audit records or an operator-facing instruction
+    // string. A future CLI runner that execFiles `npm install <id>`
+    // must share the same regex — see src/plugins/validate-id.ts.
+    const validation = validatePluginId(rawId);
+    if (!validation.ok) {
+      return {
+        handled: true,
+        reply: `Invalid plugin id: ${validation.error}`,
+      };
+    }
+    const pluginId = validation.id;
     deps.auditLog.log({
       actor: ctx.user_id,
       action: 'plugins.install',
@@ -516,10 +559,19 @@ function handlePlugins(
   }
 
   if (action === 'remove') {
-    const pluginId = args[1];
-    if (!pluginId) {
+    const rawId = args[1];
+    if (!rawId) {
       return { handled: true, reply: 'Usage: /alduin plugins remove <plugin_id>' };
     }
+    // M-16: same validation as install — never echo an unvalidated id.
+    const validation = validatePluginId(rawId);
+    if (!validation.ok) {
+      return {
+        handled: true,
+        reply: `Invalid plugin id: ${validation.error}`,
+      };
+    }
+    const pluginId = validation.id;
     deps.auditLog.log({
       actor: ctx.user_id,
       action: 'plugins.remove',

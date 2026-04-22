@@ -655,7 +655,7 @@ Telegram's markdown quirks are a notorious OpenClaw pain point. Alduin centraliz
 
 ```
 alduin skills search <query>
-alduin skills add <name>          # signed manifest, sandboxed install
+alduin skills add <name>          # signed manifest, permissioned install (worker-isolated, not a security boundary)
 alduin skills update [<name>]     # gated on compat smoke tests
 alduin skills remove <name>
 ```

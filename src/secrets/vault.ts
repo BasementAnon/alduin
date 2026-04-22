@@ -166,6 +166,65 @@ export class CredentialVault {
     this.db.prepare('DELETE FROM credentials WHERE scope = ?').run(scope);
   }
 
+  /**
+   * Run `fn` inside a single SQLite transaction so that a crash partway
+   * through a multi-step vault mutation cannot leave the credential rows
+   * in an inconsistent state.
+   *
+   * Use this to wrap every "delete-old + write-new" or "replace related
+   * rows" flow (e.g. auth-profile rotation, OAuth token refresh, key
+   * rotation). If `fn` throws, better-sqlite3 rolls the whole batch back
+   * and the vault is byte-for-byte unchanged from before the call.
+   *
+   * better-sqlite3 runs transactions synchronously; `fn` MUST be
+   * synchronous. Do not perform async work inside the callback.
+   *
+   * H-1: crash-safe rotation primitive.
+   */
+  transaction<T>(fn: () => T): T {
+    return this.db.transaction(fn)();
+  }
+
+  /**
+   * Atomically delete a set of existing scopes and write a set of new
+   * (scope, value) pairs in a single transaction. Either every row in
+   * `writes` is persisted and every scope in `deletes` is gone, or the
+   * vault is unchanged.
+   *
+   * Intended as the primitive for auth-profile / credential rotation
+   * ("old keys deleted, new keys written") so that an operator
+   * interrupting the process cannot leave a tenant without working
+   * credentials. Callers that only need a simple two-operation swap can
+   * use {@link rotateKey} instead.
+   *
+   * H-1: crash-safe rotation primitive.
+   */
+  rotate(opts: { deletes: string[]; writes: Array<{ scope: string; value: string }> }): void {
+    this.transaction(() => {
+      for (const scope of opts.deletes) {
+        this.delete(scope);
+      }
+      for (const entry of opts.writes) {
+        this.set(entry.scope, entry.value);
+      }
+    });
+  }
+
+  /**
+   * Delete `oldScope` and write `(newScope, newValue)` atomically.
+   * If `oldScope === newScope`, behaves as a plain overwrite.
+   *
+   * H-1: crash-safe rotation primitive.
+   */
+  rotateKey(oldScope: string, newScope: string, newValue: string): void {
+    this.transaction(() => {
+      if (oldScope !== newScope) {
+        this.delete(oldScope);
+      }
+      this.set(newScope, newValue);
+    });
+  }
+
   /** List all scopes matching a prefix. */
   list(scopePrefix: string): string[] {
     const rows = this.db

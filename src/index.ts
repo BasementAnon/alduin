@@ -572,9 +572,15 @@ export async function createRuntime(
       // separate port — never expose it on the same interface as the webhook
       // gateway. The gateway port should be firewalled to only accept traffic
       // from webhook provider IP ranges (e.g. Telegram's 149.154.160.0/20).
+      //
+      // The gateway binds to `ALDUIN_BIND_HOST` (default 127.0.0.1) so it is
+      // unreachable from other hosts unless the operator has explicitly opted
+      // in to a different interface. Pair this with ALDUIN_TRUSTED_PROXIES
+      // when fronted by a reverse proxy.
+      const bindHost = process.env['ALDUIN_BIND_HOST'] ?? '127.0.0.1';
       await new Promise<void>((resolve) => {
-        gateway.app.listen(port, () => {
-          console.log(`[Alduin] Listening on :${port}`);
+        gateway.app.listen(port, bindHost, () => {
+          console.log(`[Alduin] Listening on ${bindHost}:${port}`);
           resolve();
         });
       });

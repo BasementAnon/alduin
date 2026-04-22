@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
-import { WebhookGateway } from './gateway.js';
+import { WebhookGateway, parseTrustedProxies, DEFAULT_BIND_HOST } from './gateway.js';
 import { DedupeCache } from './dedupe.js';
 import type { ChannelAdapter, RawChannelEvent } from '../channels/adapter.js';
 
@@ -333,5 +333,54 @@ describe('DedupeCache', () => {
   it('close() is idempotent', () => {
     const cache = new DedupeCache();
     expect(() => { cache.close(); cache.close(); }).not.toThrow();
+  });
+});
+
+// ── H-3: parseTrustedProxies + bind-host default ─────────────────────────────
+
+describe('parseTrustedProxies (H-3)', () => {
+  it('returns null for undefined / empty input (no trust)', () => {
+    expect(parseTrustedProxies(undefined)).toBeNull();
+    expect(parseTrustedProxies('')).toBeNull();
+    expect(parseTrustedProxies('   ')).toBeNull();
+  });
+
+  it('parses a comma-separated list of IPs and CIDRs', () => {
+    expect(parseTrustedProxies('10.0.0.0/8,192.168.1.1')).toEqual([
+      '10.0.0.0/8',
+      '192.168.1.1',
+    ]);
+  });
+
+  it('trims surrounding whitespace on each entry', () => {
+    expect(parseTrustedProxies(' 10.0.0.1 , 10.0.0.2 ')).toEqual([
+      '10.0.0.1',
+      '10.0.0.2',
+    ]);
+  });
+
+  it('rejects bare "true" with a descriptive error (IP-spoofing guard)', () => {
+    expect(() => parseTrustedProxies('true')).toThrow(/refuses "true"/);
+  });
+
+  it('rejects "*" with a descriptive error (IP-spoofing guard)', () => {
+    expect(() => parseTrustedProxies('*')).toThrow(/refuses "true"\/"\*"/);
+  });
+
+  it('filters out empty segments produced by trailing commas', () => {
+    expect(parseTrustedProxies('10.0.0.1,,10.0.0.2,')).toEqual([
+      '10.0.0.1',
+      '10.0.0.2',
+    ]);
+  });
+
+  it('returns null when the trimmed list has no entries left', () => {
+    expect(parseTrustedProxies(',,,')).toBeNull();
+  });
+});
+
+describe('DEFAULT_BIND_HOST (H-3)', () => {
+  it('defaults to loopback so the server is not internet-exposed by accident', () => {
+    expect(DEFAULT_BIND_HOST).toBe('127.0.0.1');
   });
 });

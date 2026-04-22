@@ -205,23 +205,33 @@ export class OAuthHelper {
     return this.vault.has(this.tokenScope(tenantId, userId, 'access_token'));
   }
 
+  /**
+   * Persist the access / refresh / expiry triple atomically.
+   *
+   * H-1: all three rows are written inside a single vault transaction so
+   * that a crash between writes cannot leave the user with an access
+   * token whose matching refresh token was never stored (or vice versa).
+   * Either the whole set is committed or none of it is.
+   */
   private storeTokens(tenantId: string, userId: string, tokens: OAuthTokens): void {
-    this.vault.set(
-      this.tokenScope(tenantId, userId, 'access_token'),
-      tokens.access_token
-    );
-    if (tokens.refresh_token) {
+    this.vault.transaction(() => {
       this.vault.set(
-        this.tokenScope(tenantId, userId, 'refresh_token'),
-        tokens.refresh_token
+        this.tokenScope(tenantId, userId, 'access_token'),
+        tokens.access_token
       );
-    }
-    if (tokens.expires_at) {
-      this.vault.set(
-        this.tokenScope(tenantId, userId, 'expires_at'),
-        tokens.expires_at
-      );
-    }
+      if (tokens.refresh_token) {
+        this.vault.set(
+          this.tokenScope(tenantId, userId, 'refresh_token'),
+          tokens.refresh_token
+        );
+      }
+      if (tokens.expires_at) {
+        this.vault.set(
+          this.tokenScope(tenantId, userId, 'expires_at'),
+          tokens.expires_at
+        );
+      }
+    });
   }
 
   private tokenScope(tenantId: string, userId: string, key: string): string {

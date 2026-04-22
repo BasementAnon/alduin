@@ -1,12 +1,30 @@
 /**
- * Worker-thread sandbox for skill code modules.
+ * Worker-thread isolation for skill code modules.
  *
- * Runs untrusted skill code in an isolated worker thread with:
- *  - Time limit (default 30 s)
- *  - Memory cap via --max-old-space-size (default 128 MiB)
- *  - No fs/net access unless the skill manifest declares allow_fs/allow_net
+ * ⚠ NOT A SECURITY BOUNDARY. The historical name "sandbox" is retained
+ * for code-identifier stability only (C-1: docs say what this is,
+ * identifiers do not change). This is a `worker_threads` wrapper with
+ * a coarse `require` filter — it cannot resist a determined adversary.
+ * In particular:
+ *   - `worker_threads` share the Node.js process memory; a native-code
+ *     exploit can escape.
+ *   - There is no seccomp/landlock/AppArmor confinement, no file
+ *     descriptor revocation, no CPU share limit.
+ *   - The memory cap (--max-old-space-size) is advisory and does not
+ *     account for ArrayBuffers or off-heap allocations.
  *
- * The sandbox evaluates a skill's code body and returns the result as JSON.
+ * Treat this as a **soft isolation layer** for well-behaved but
+ * potentially buggy skill code, not as a barrier against untrusted
+ * input or malicious plugins. A real sandbox (isolated-vm, separate
+ * OS process with seccomp, etc.) is tracked as future work.
+ *
+ * Runtime controls that ARE enforced:
+ *  - Time limit (default 30 s) via worker termination
+ *  - Advisory memory cap via --max-old-space-size (default 128 MiB)
+ *  - Require-path filter: fs/net gated on allow_fs/allow_net;
+ *    child_process and worker_threads are always blocked
+ *
+ * The runner evaluates a skill's code body and returns the result as JSON.
  */
 
 import { Worker } from 'node:worker_threads';

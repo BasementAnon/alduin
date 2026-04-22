@@ -1,4 +1,13 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeSync,
+} from 'node:fs';
 import { parse as parseYaml, stringify as toYaml } from 'yaml';
 import { alduinConfigSchema } from '../config/schema/index.js';
 import {
@@ -24,8 +33,44 @@ function readRaw(configPath: string): Record<string, unknown> {
   return raw as Record<string, unknown>;
 }
 
+/**
+ * Durably write the config atomically.
+ *
+ * H-13: write the serialized YAML to a sibling `.tmp` file, fsync the
+ * descriptor to get the bytes onto disk, then rename it over the target.
+ * A `.bak` snapshot of the prior contents is kept so an operator (or a
+ * recovery tool) can roll back a botched edit. A crash or power loss at
+ * any point either leaves the original config intact or leaves the full
+ * new config — never a partially-written half-file.
+ */
 function writeRaw(configPath: string, raw: Record<string, unknown>): void {
-  writeFileSync(configPath, toYaml(raw), 'utf-8');
+  const serialized = toYaml(raw);
+  const tmpPath = `${configPath}.tmp`;
+  const bakPath = `${configPath}.bak`;
+
+  // Snapshot the existing file as .bak (best-effort; a missing source
+  // just means this is the first write and there is nothing to back up).
+  if (existsSync(configPath)) {
+    try {
+      copyFileSync(configPath, bakPath);
+    } catch {
+      // Best-effort — proceed even if the backup can't be made.
+    }
+  }
+
+  // Write-then-fsync the tmp file so the bytes are durable before we
+  // flip the rename.
+  const fd = openSync(tmpPath, 'w');
+  try {
+    writeSync(fd, serialized);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+
+  // Atomic replace. On POSIX this is a single inode swap; an interrupted
+  // rename leaves either the old config or the new one, never both.
+  renameSync(tmpPath, configPath);
 }
 
 function parseDotPath(dotPath: string): string[] {

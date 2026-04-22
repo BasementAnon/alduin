@@ -245,6 +245,27 @@ async function detectMime(buffer: Buffer, fallback: string): Promise<string> {
 
 const TELEGRAM_TOKEN_RE = /^[0-9]+:[A-Za-z0-9_-]+$/;
 
+/**
+ * Strip Telegram bot tokens from arbitrary text.
+ *
+ * M-8: the real bot token has to appear in both getFile and file-download
+ * URLs, so a fetch-layer error (DNS failure, timeout, non-2xx whose URL
+ * Node echoes back in the message) can drag it into log output. This
+ * helper replaces `bot<numeric>:<secret>` with `bot[REDACTED]` so error
+ * strings can be safely included in return values, trace events, or
+ * console output.
+ *
+ * Exported so downstream logging paths (and tests) can apply the same
+ * redaction to anything derived from a Telegram-download failure.
+ */
+export function redactTelegramToken(input: string): string {
+  // Match `bot` followed by the Telegram token shape. We intentionally use
+  // the same character class (digits, letters, `_`, `-`) as TELEGRAM_TOKEN_RE
+  // plus `:` so we don't over-eat surrounding context like a trailing
+  // slash or query string.
+  return input.replace(/bot[0-9]+:[A-Za-z0-9_-]+/g, 'bot[REDACTED]');
+}
+
 async function downloadTelegramFile(
   apiBase: string,
   token: string,
@@ -280,9 +301,14 @@ async function downloadTelegramFile(
     const arrayBuffer = await fileRes.arrayBuffer();
     return { ok: true, buffer: Buffer.from(arrayBuffer) };
   } catch (e) {
+    // Redact the bot token before it can land in logs/traces. Node's
+    // fetch implementation sometimes includes the request URL verbatim
+    // in error messages (ECONNREFUSED, getaddrinfo failures, TLS errors),
+    // and that URL contains `bot<TOKEN>`.
+    const raw = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
-      error: { kind: 'download_failed', reason: e instanceof Error ? e.message : String(e) },
+      error: { kind: 'download_failed', reason: redactTelegramToken(raw) },
     };
   }
 }

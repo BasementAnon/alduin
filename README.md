@@ -105,7 +105,7 @@ alduin models sync      # probe provider /models APIs, show new/removed
 alduin models diff      # compare current config pins vs. catalog
 alduin models upgrade   # propose new pins, run smoke tests, apply
 alduin skills list      # list available skills
-alduin skills run <id>  # execute a skill in the sandbox
+alduin skills run <id>  # execute a skill in its configured isolation environment
 ```
 
 Model versions are **never auto-upgraded**. All changes go through `alduin models upgrade` and are logged to `.alduin/audit.log`.
@@ -164,7 +164,7 @@ Alduin uses a plugin architecture based on `@alduin/plugin-sdk`:
 
 **Skills:**
 - YAML frontmatter-based skill definitions in `skills/`
-- Sandboxed execution with configurable permissions
+- Configurable per-skill permissions enforced by the policy engine
 - Registry with frontmatter parsing and validation
 
 Plugins are discovered via the MCP host (`src/plugins/mcp-host.ts`) which provides an in-process Model Context Protocol interface.
@@ -209,7 +209,7 @@ Orchestrator (sonnet) ─── plans task
 | Recursive sub-orchestration | ✅ |
 | Plugin system (@alduin/plugin-sdk) | ✅ |
 | MCP host (in-process) | ✅ |
-| Skills registry + sandboxed runner | ✅ |
+| Skills registry + permissioned runner | ✅ |
 | Provider streaming | ✅ |
 | Tiered memory (hot/warm/cold) | ✅ |
 | Deterministic pipeline engine | ✅ |

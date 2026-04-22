@@ -52,11 +52,54 @@ export interface GatewayConfig {
 }
 
 /**
+ * Default host the gateway binds on when `ALDUIN_BIND_HOST` is not set.
+ *
+ * Binding to the loopback address keeps the webhook endpoint off the public
+ * interface by default — operators running behind a reverse proxy or tunnel
+ * should set `ALDUIN_BIND_HOST=0.0.0.0` (or the specific interface IP) after
+ * confirming that network-level access controls are in place.
+ */
+export const DEFAULT_BIND_HOST = '127.0.0.1';
+
+/**
+ * Parse the operator-provided list of trusted proxy addresses/CIDRs.
+ *
+ * `ALDUIN_TRUSTED_PROXIES` is a comma-separated list (e.g.
+ * `10.0.0.0/8,192.168.1.1`). Express's `trust proxy` setting accepts a
+ * function, string array, or CIDR string — we pass an array of non-empty
+ * trimmed entries. When the env var is empty or unset, returns null and the
+ * caller should leave `trust proxy` at its default (disabled).
+ *
+ * We deliberately refuse the bare value `true` / `*` here: trusting every
+ * upstream hop allows `X-Forwarded-For` spoofing and breaks rate limiting.
+ * Operators that truly need to trust all proxies must enumerate them.
+ */
+export function parseTrustedProxies(raw: string | undefined): string[] | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed === 'true' || trimmed === '*') {
+    throw new Error(
+      'ALDUIN_TRUSTED_PROXIES refuses "true"/"*" — enumerate proxy IPs/CIDRs ' +
+        'explicitly (e.g. "10.0.0.0/8,192.168.1.1") to prevent X-Forwarded-For spoofing.'
+    );
+  }
+  const entries = trimmed
+    .split(',')
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0);
+  return entries.length > 0 ? entries : null;
+}
+
+/**
  * Webhook gateway: single Express app that receives POST /webhooks/:channel.
  *
  * Signature verification is delegated to each adapter's `verifyWebhookSignature`.
  * Rate limiting falls back to request IP when the payload has no parseable user ID.
- * Trust proxy is enabled only when ALDUIN_TRUST_PROXY=1.
+ * Trust proxy is configured from `ALDUIN_TRUSTED_PROXIES` (comma-separated
+ * list of proxy IPs/CIDRs). The legacy `ALDUIN_TRUST_PROXY=1` flag — which
+ * set `trust proxy: true` and allowed any upstream to spoof the client IP —
+ * has been removed.
  */
 export class WebhookGateway {
   readonly app: ReturnType<typeof express>;
@@ -76,8 +119,12 @@ export class WebhookGateway {
   constructor(config: GatewayConfig = {}) {
     this.app = express();
 
-    if (process.env['ALDUIN_TRUST_PROXY'] === '1') {
-      this.app.set('trust proxy', true);
+    // Trust proxy is configured from ALDUIN_TRUSTED_PROXIES. Never set
+    // `trust proxy: true` — that would let any upstream host spoof the
+    // client IP via X-Forwarded-For and bypass per-IP rate limiting.
+    const trustedProxies = parseTrustedProxies(process.env['ALDUIN_TRUSTED_PROXIES']);
+    if (trustedProxies) {
+      this.app.set('trust proxy', trustedProxies);
     }
 
     this.rateLimiter = new TokenBucket(

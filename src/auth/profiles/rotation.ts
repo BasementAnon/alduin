@@ -55,6 +55,22 @@ export class ProfileRotator {
     this.profiles.delete(id);
   }
 
+  /**
+   * Atomically replace the profile at `oldProfileId` with `newProfile`.
+   *
+   * The in-memory rotation pool is a plain Map, so this is trivially
+   * atomic at the engine level. When callers rotate the *underlying*
+   * credential in the vault (the typical flow: delete the old API key
+   * row, write a new API key row, then swap the in-memory profile), the
+   * vault side must be made crash-safe too — see
+   * `CredentialVault.rotateKey` / `CredentialVault.rotate`, which wrap
+   * the delete + write pair in a single SQLite transaction. H-1.
+   */
+  rotateProfile(oldProfileId: string, newProfile: AuthProfile): void {
+    this.profiles.delete(oldProfileId);
+    this.profiles.set(newProfile.id, newProfile);
+  }
+
   /** Get all profiles, sorted by priority (ascending). */
   getProfiles(): AuthProfile[] {
     return Array.from(this.profiles.values()).sort((a, b) => a.priority - b.priority);

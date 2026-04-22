@@ -29,6 +29,12 @@ export function escapeTelegramHtml(text: string): string {
 /**
  * Convert a subset of markdown to Telegram-supported HTML tags.
  * Handles: bold, italic, code spans, code fences, and links.
+ *
+ * Every captured group is passed through `escapeTelegramHtml` before being
+ * interpolated into the output tag, so a crafted input like
+ *   `_</i><b>injected_`
+ * is rendered as `<i>&lt;/i&gt;&lt;b&gt;injected</i>` rather than allowing
+ * the attacker to break out of the italic span and inject fresh HTML. H-6.
  */
 export function markdownToTelegramHtml(md: string): string {
   let html = md;

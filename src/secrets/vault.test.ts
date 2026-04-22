@@ -174,3 +174,87 @@ describe('CredentialVault — per-install salt', () => {
     }
   });
 });
+
+// ── H-1: Transactional rotation ────────────────────────────────────────────
+
+describe('CredentialVault.transaction / rotate / rotateKey (H-1)', () => {
+  let vault: CredentialVault;
+
+  beforeEach(() => {
+    vault = new CredentialVault(':memory:', 'test-master-secret');
+  });
+
+  afterEach(() => {
+    vault?.close();
+  });
+
+  it('transaction runs all writes atomically on success', () => {
+    vault.transaction(() => {
+      vault.set('a', '1');
+      vault.set('b', '2');
+      vault.set('c', '3');
+    });
+    expect(vault.get('a')).toBe('1');
+    expect(vault.get('b')).toBe('2');
+    expect(vault.get('c')).toBe('3');
+  });
+
+  it('transaction rolls back all writes if the callback throws', () => {
+    vault.set('pre-existing', 'keep-me');
+    expect(() => {
+      vault.transaction(() => {
+        vault.set('x', 'would-write');
+        vault.set('y', 'would-also-write');
+        throw new Error('boom');
+      });
+    }).toThrow('boom');
+    // Neither x nor y should have been persisted.
+    expect(vault.get('x')).toBeNull();
+    expect(vault.get('y')).toBeNull();
+    // But the pre-existing row must be intact.
+    expect(vault.get('pre-existing')).toBe('keep-me');
+  });
+
+  it('rotate() deletes-then-writes atomically', () => {
+    vault.set('old-key', 'old-val');
+    vault.rotate({
+      deletes: ['old-key'],
+      writes: [{ scope: 'new-key', value: 'new-val' }],
+    });
+    expect(vault.get('old-key')).toBeNull();
+    expect(vault.get('new-key')).toBe('new-val');
+  });
+
+  it('rotate() leaves old entries intact if a write fails mid-transaction', () => {
+    vault.set('keep-1', 'v1');
+    vault.set('keep-2', 'v2');
+    // Pass an invalid value type (number) — the setter throws, which
+    // should cancel the whole transaction.
+    expect(() => {
+      vault.rotate({
+        deletes: ['keep-1'],
+        writes: [
+          { scope: 'new', value: 'ok' },
+          { scope: 'bad', value: 123 as unknown as string },
+        ],
+      });
+    }).toThrow();
+    // keep-1 MUST still exist — the delete got rolled back.
+    expect(vault.get('keep-1')).toBe('v1');
+    expect(vault.get('keep-2')).toBe('v2');
+    expect(vault.get('new')).toBeNull();
+  });
+
+  it('rotateKey() renames a single scope atomically', () => {
+    vault.set('profiles/old', 'payload');
+    vault.rotateKey('profiles/old', 'profiles/new', 'payload');
+    expect(vault.get('profiles/old')).toBeNull();
+    expect(vault.get('profiles/new')).toBe('payload');
+  });
+
+  it('rotateKey() does not delete when old and new scopes match (update-in-place)', () => {
+    vault.set('profiles/same', 'v1');
+    vault.rotateKey('profiles/same', 'profiles/same', 'v2');
+    expect(vault.get('profiles/same')).toBe('v2');
+  });
+});

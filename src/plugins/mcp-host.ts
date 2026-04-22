@@ -15,10 +15,42 @@ import type { PluginContext } from '@alduin/plugin-sdk';
 import type { LLMToolCall } from '../types/llm.js';
 import type { PolicyVerdict } from '../auth/policy.js';
 import type { TraceLogger } from '../trace/logger.js';
+import { redactSecrets } from '../memory/redactor.js';
+
+/**
+ * Redact secrets and wrap a raw tool output in `<tool_output>` delimiter
+ * tags before it is fed back into any LLM (executor re-entry, orchestrator
+ * synthesis, etc.).
+ *
+ * The XML tags give the model a hard boundary between "data" and
+ * "instructions" so an adversarial tool response cannot pretend to be a
+ * new system prompt. H-8.
+ *
+ * We also redact any `</tool_output>` occurrences in the raw content so
+ * untrusted data cannot forge the closing tag and smuggle text outside
+ * the delimited region.
+ */
+export function formatToolOutputForLLM(
+  rawOutput: string,
+  opts?: { toolName?: string; redactPii?: boolean }
+): string {
+  const redacted = redactSecrets(rawOutput, opts?.redactPii ?? false);
+  const withoutClose = redacted.replace(/<\/?tool_output>/gi, '[REDACTED_TAG]');
+  const nameAttr = opts?.toolName
+    ? ` name="${opts.toolName.replace(/["<>&]/g, '_')}"`
+    : '';
+  return `<tool_output${nameAttr}>\n${withoutClose}\n</tool_output>`;
+}
+
+/**
+ * Default per-tool invocation timeout. A buggy or misbehaving plugin must
+ * never be able to stall the orchestrator indefinitely. H-7.
+ */
+export const DEFAULT_TOOL_INVOKE_TIMEOUT_MS = 30_000;
 
 // ── Tool invocation result ──────────────────────────────────────────────────
 
-export type ToolInvokeStatus = 'ok' | 'error' | 'policy_denied' | 'not_found';
+export type ToolInvokeStatus = 'ok' | 'error' | 'policy_denied' | 'not_found' | 'timeout';
 
 export interface ToolInvokeResult {
   status: ToolInvokeStatus;
@@ -40,9 +72,12 @@ export class MCPToolHost {
   /** All tool descriptors for the executor's tool list. */
   private descriptors: ToolDescriptor[] = [];
   private traceLogger?: TraceLogger;
+  /** Per-call timeout (ms). Default 30s. H-7. */
+  private invokeTimeoutMs: number;
 
-  constructor(opts?: { traceLogger?: TraceLogger }) {
+  constructor(opts?: { traceLogger?: TraceLogger; invokeTimeoutMs?: number }) {
     this.traceLogger = opts?.traceLogger;
+    this.invokeTimeoutMs = opts?.invokeTimeoutMs ?? DEFAULT_TOOL_INVOKE_TIMEOUT_MS;
   }
 
   // ── Registration ────────────────────────────────────────────────────────
@@ -143,27 +178,74 @@ export class MCPToolHost {
       tool_call_id: call.id,
     });
 
-    // 4. Execute with crash isolation
+    // 4. Execute with crash + hang isolation.
+    //
+    // Wrap the plugin call in a Promise.race against a hard deadline so a
+    // misbehaving tool cannot stall the orchestrator. If the plugin's
+    // PluginContext exposes an AbortSignal (ctx.abortSignal — optional
+    // per the SDK), we forward an AbortController so cooperating tools
+    // can tear down in-flight work when the deadline fires. H-7.
+    const timeoutMs = this.invokeTimeoutMs;
+    const controller = new AbortController();
+    const ctxWithSignal = {
+      ...ctx,
+      abortSignal: controller.signal,
+    } as PluginContext & { abortSignal?: AbortSignal };
+
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new Error(`Tool "${call.name}" timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
     let result: ToolResult;
     try {
-      result = await entry.plugin.invoke(call.name, call.arguments, ctx);
+      result = await Promise.race([
+        entry.plugin.invoke(call.name, call.arguments, ctxWithSignal),
+        timeoutPromise,
+      ]);
     } catch (error) {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
       const errorMsg = error instanceof Error ? error.message : String(error);
+      const latencyMs = Date.now() - start;
+
+      if (timedOut) {
+        this.logTrace(taskId, 'tool_failed', {
+          tool_name: call.name,
+          tool_plugin_id: entry.pluginId,
+          tool_call_id: call.id,
+          error: `timeout after ${timeoutMs}ms`,
+          latency_ms: latencyMs,
+        });
+        return {
+          status: 'timeout',
+          output: '',
+          error: `Tool "${call.name}" timed out after ${timeoutMs}ms`,
+          plugin_id: entry.pluginId,
+          latency_ms: latencyMs,
+        };
+      }
+
       this.logTrace(taskId, 'tool_failed', {
         tool_name: call.name,
         tool_plugin_id: entry.pluginId,
         tool_call_id: call.id,
         error: errorMsg,
-        latency_ms: Date.now() - start,
+        latency_ms: latencyMs,
       });
       return {
         status: 'error',
         output: '',
         error: `Tool "${call.name}" crashed: ${errorMsg}`,
         plugin_id: entry.pluginId,
-        latency_ms: Date.now() - start,
+        latency_ms: latencyMs,
       };
     }
+    if (timeoutHandle) clearTimeout(timeoutHandle);
 
     const latencyMs = Date.now() - start;
 
