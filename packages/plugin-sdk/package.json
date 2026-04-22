@@ -1,0 +1,33 @@
+{
+  "name": "@alduin/plugin-sdk",
+  "version": "0.1.0",
+  "description": "Public contract for Alduin plugins — provider, skill, and tool kinds",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "zod": "^3.22.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "tool-echo",
+  "version": "0.1.0",
+  "kind": "tool",
+  "entry": "./src/index.ts",
+  "description": "Reference echo tool for testing the MCP host",
+  "tools": ["echo"]
+}

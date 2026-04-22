@@ -1,0 +1,13 @@
+{
+  "id": "ollama",
+  "version": "0.1.0",
+  "kind": "provider",
+  "entry": "./src/index.ts",
+  "description": "Ollama local inference provider",
+  "providers": ["ollama"],
+  "providerAuthEnvVars": {},
+  "contributes": {
+    "config_schema": "./schema.json",
+    "models_catalog": "./models.json"
+  }
+}

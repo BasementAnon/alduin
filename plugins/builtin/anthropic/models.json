@@ -1,0 +1,28 @@
+{
+  "anthropic/claude-sonnet-4-6": {
+    "provider": "anthropic",
+    "api_id": "claude-sonnet-4-6",
+    "released": "2026-02-10",
+    "status": "stable",
+    "context_window": 200000,
+    "max_output_tokens": 64000,
+    "tokenizer": "anthropic",
+    "pricing_usd_per_mtok": { "input": 3, "output": 15 },
+    "capabilities": ["tool_use", "vision", "streaming"],
+    "deprecated": false,
+    "sunset_date": null
+  },
+  "anthropic/claude-opus-4-6": {
+    "provider": "anthropic",
+    "api_id": "claude-opus-4-6",
+    "released": "2026-03-01",
+    "status": "stable",
+    "context_window": 200000,
+    "max_output_tokens": 32000,
+    "tokenizer": "anthropic",
+    "pricing_usd_per_mtok": { "input": 15, "output": 75 },
+    "capabilities": ["tool_use", "vision", "streaming"],
+    "deprecated": false,
+    "sunset_date": null
+  }
+}

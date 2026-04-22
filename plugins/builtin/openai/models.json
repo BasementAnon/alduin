@@ -1,0 +1,15 @@
+{
+  "openai/gpt-4.1": {
+    "provider": "openai",
+    "api_id": "gpt-4.1",
+    "released": "2025-04-14",
+    "status": "stable",
+    "context_window": 1048576,
+    "max_output_tokens": 32768,
+    "tokenizer": "cl100k_base",
+    "pricing_usd_per_mtok": { "input": 2, "output": 8 },
+    "capabilities": ["tool_use", "streaming", "json_mode"],
+    "deprecated": false,
+    "sunset_date": null
+  }
+}

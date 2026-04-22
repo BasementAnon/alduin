@@ -1,0 +1,15 @@
+{
+  "id": "anthropic",
+  "version": "0.1.0",
+  "kind": "provider",
+  "entry": "./src/index.ts",
+  "description": "Anthropic Claude provider (Claude Opus, Sonnet, Haiku)",
+  "providers": ["anthropic"],
+  "providerAuthEnvVars": {
+    "anthropic": ["ANTHROPIC_API_KEY"]
+  },
+  "contributes": {
+    "config_schema": "./schema.json",
+    "models_catalog": "./models.json"
+  }
+}

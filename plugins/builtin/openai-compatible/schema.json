@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenAI-compatible provider config",
+  "type": "object",
+  "properties": {
+    "api_key_env": {
+      "type": "string",
+      "description": "Environment variable holding the API key for the compatible endpoint"
+    },
+    "base_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL of the OpenAI-compatible API (e.g. https://api.deepseek.com/v1)"
+    },
+    "api_type": {
+      "type": "string",
+      "const": "openai-compatible",
+      "description": "Must be 'openai-compatible' to enable this provider"
+    }
+  },
+  "required": ["base_url", "api_type"]
+}

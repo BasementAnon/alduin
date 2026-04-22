@@ -1,0 +1,13 @@
+{
+  "id": "openai-compatible",
+  "version": "0.1.0",
+  "kind": "provider",
+  "entry": "./src/index.ts",
+  "description": "OpenAI-compatible provider (DeepSeek, Together AI, Fireworks, Groq)",
+  "providers": ["openai-compatible"],
+  "providerAuthEnvVars": {},
+  "contributes": {
+    "config_schema": "./schema.json",
+    "models_catalog": "./models.json"
+  }
+}

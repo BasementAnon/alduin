@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenAI provider config",
+  "type": "object",
+  "properties": {
+    "api_key_env": {
+      "type": "string",
+      "description": "Environment variable holding the OpenAI API key",
+      "default": "OPENAI_API_KEY"
+    }
+  }
+}

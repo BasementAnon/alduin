@@ -1,0 +1,15 @@
+{
+  "id": "openai",
+  "version": "0.1.0",
+  "kind": "provider",
+  "entry": "./src/index.ts",
+  "description": "OpenAI provider (GPT-4, GPT-4.1, o-series)",
+  "providers": ["openai"],
+  "providerAuthEnvVars": {
+    "openai": ["OPENAI_API_KEY"]
+  },
+  "contributes": {
+    "config_schema": "./schema.json",
+    "models_catalog": "./models.json"
+  }
+}
