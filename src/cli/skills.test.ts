@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { tmpdir } from 'os';
+import { tmpdir, homedir } from 'os';
 import { SkillRegistry } from '../skills/registry.js';
+import { addSkill } from './skills.js';
 
 function makeTmpDir(): string {
   return mkdtempSync(join(tmpdir(), 'alduin-cli-skills-'));
@@ -213,5 +214,84 @@ User body.
     // User version takes priority in merged view
     const userManifest = user.getManifest('my-skill');
     expect(userManifest!.description).toBe('User version overrides curated');
+  });
+});
+
+// ── addSkill (CLI install) ───────────────────────────────────────────────────
+
+const SAMPLE_SKILL_MD = `---
+id: cli-add-test-skill
+description: Minimal skill used by addSkill() regression tests
+inputs:
+  - name: text
+    type: string
+    required: true
+    description: The input text
+model_hints:
+  prefer: []
+  fallback_local: true
+env_required: []
+os: null
+allow_sub_orchestration: false
+allow_fs: false
+allow_net: false
+---
+
+## System prompt
+
+Test skill body.
+`;
+
+describe('addSkill — install from file path or directory', () => {
+  let src: string;
+  const installedDir = join(homedir(), '.alduin', 'skills', 'cli-add-test-skill');
+
+  beforeEach(() => {
+    src = mkdtempSync(join(tmpdir(), 'alduin-add-skill-src-'));
+    if (existsSync(installedDir)) {
+      rmSync(installedDir, { recursive: true, force: true });
+    }
+  });
+
+  afterEach(() => {
+    if (existsSync(src)) rmSync(src, { recursive: true, force: true });
+    if (existsSync(installedDir)) {
+      rmSync(installedDir, { recursive: true, force: true });
+    }
+    vi.restoreAllMocks();
+  });
+
+  it('installs a skill from a single .md file path (regression: readdirSync on file)', () => {
+    const filePath = join(src, 'mySkill.md');
+    writeFileSync(filePath, SAMPLE_SKILL_MD, 'utf-8');
+
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('process.exit called');
+    }) as never);
+
+    expect(() => addSkill(filePath)).not.toThrow();
+    expect(exitSpy).not.toHaveBeenCalled();
+
+    expect(existsSync(join(installedDir, 'SKILL.md'))).toBe(true);
+    expect(readFileSync(join(installedDir, 'SKILL.md'), 'utf-8')).toContain(
+      'id: cli-add-test-skill'
+    );
+  });
+
+  it('installs a skill from a directory containing SKILL.md (and copies siblings)', () => {
+    const skillSrcDir = join(src, 'my-skill-dir');
+    mkdirSync(skillSrcDir, { recursive: true });
+    writeFileSync(join(skillSrcDir, 'SKILL.md'), SAMPLE_SKILL_MD, 'utf-8');
+    writeFileSync(join(skillSrcDir, 'helper.txt'), 'asset', 'utf-8');
+
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('process.exit called');
+    }) as never);
+
+    expect(() => addSkill(skillSrcDir)).not.toThrow();
+    expect(exitSpy).not.toHaveBeenCalled();
+
+    expect(existsSync(join(installedDir, 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(installedDir, 'helper.txt'))).toBe(true);
   });
 });

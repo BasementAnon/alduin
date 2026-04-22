@@ -1,5 +1,15 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { CredentialVault } from '../secrets/vault.js';
+
+/** Maximum number of in-flight authorize states before pruning the oldest. */
+const MAX_PENDING_STATES = 100;
+/** Pending-state TTL (milliseconds). Matches the sweep cutoff. */
+const PENDING_STATE_TTL_MS = 10 * 60 * 1000;
+
+/** Compute an RFC 7636 S256 code_challenge from a verifier. */
+function deriveCodeChallenge(verifier: string): string {
+  return createHash('sha256').update(verifier).digest('base64url');
+}
 
 export interface OAuthConfig {
   client_id: string;
@@ -26,10 +36,23 @@ export class OAuthHelper {
   private config: OAuthConfig;
   private vault: CredentialVault;
   private connectorId: string;
-  /** In-flight state tokens awaiting callback */
+  /**
+   * In-flight state tokens awaiting callback.
+   *
+   * Each entry carries the PKCE code_verifier (RFC 7636) that was paired with
+   * the state when the authorize URL was built. The verifier never leaves the
+   * server — only the SHA-256 hash (code_challenge) is sent to the provider —
+   * so an attacker who intercepts the authorization code cannot exchange it
+   * for tokens without this map entry.
+   */
   private pendingStates = new Map<
     string,
-    { tenant_id: string; user_id: string; created_at: number }
+    {
+      tenant_id: string;
+      user_id: string;
+      code_verifier: string;
+      created_at: number;
+    }
   >();
 
   constructor(config: OAuthConfig, vault: CredentialVault, connectorId: string) {
@@ -40,17 +63,33 @@ export class OAuthHelper {
 
   /**
    * Build the authorization URL that the user clicks.
-   * Returns { url, state } — state is stored for verification on callback.
+   * Returns { url, state } — state + PKCE verifier are stored for verification
+   * on callback.
+   *
+   * A 32-byte random `code_verifier` is generated and its SHA-256 hash is sent
+   * to the provider as `code_challenge` (method `S256`). On callback, the
+   * verifier itself is included in the token exchange POST body — the
+   * provider recomputes the hash and rejects the exchange if it does not
+   * match the `code_challenge` it saw at authorize time.
    */
   buildAuthorizeUrl(tenantId: string, userId: string): { url: string; state: string } {
     this.sweepExpiredStates();
 
     const state = randomBytes(16).toString('hex');
+    const codeVerifier = randomBytes(32).toString('base64url');
+    const codeChallenge = deriveCodeChallenge(codeVerifier);
+
     this.pendingStates.set(state, {
       tenant_id: tenantId,
       user_id: userId,
+      code_verifier: codeVerifier,
       created_at: Date.now(),
     });
+
+    // Enforce a hard ceiling on the in-memory map so a flood of authorize
+    // requests can never pin unbounded memory. The oldest entries win the
+    // eviction race — they're closest to TTL anyway.
+    this.enforceMapCap();
 
     const params = new URLSearchParams({
       client_id: this.config.client_id,
@@ -58,6 +97,8 @@ export class OAuthHelper {
       response_type: 'code',
       scope: this.config.scopes.join(' '),
       state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
       access_type: 'offline',
       prompt: 'consent',
     });
@@ -66,22 +107,31 @@ export class OAuthHelper {
   }
 
   /**
-   * Verify a state token from the callback and return the associated context.
+   * Verify a state token from the callback and return the associated context,
+   * including the PKCE code_verifier that must be echoed in exchangeCode().
    * Consumes the state — it cannot be reused.
    */
-  verifyState(state: string): { tenant_id: string; user_id: string } | null {
+  verifyState(state: string): {
+    tenant_id: string;
+    user_id: string;
+    code_verifier: string;
+  } | null {
     this.sweepExpiredStates();
 
     const pending = this.pendingStates.get(state);
     if (!pending) return null;
 
     this.pendingStates.delete(state);
-    return { tenant_id: pending.tenant_id, user_id: pending.user_id };
+    return {
+      tenant_id: pending.tenant_id,
+      user_id: pending.user_id,
+      code_verifier: pending.code_verifier,
+    };
   }
 
-  /** Delete all pending states older than 10 minutes */
+  /** Delete all pending states older than PENDING_STATE_TTL_MS. */
   private sweepExpiredStates(): void {
-    const cutoff = Date.now() - 10 * 60 * 1000;
+    const cutoff = Date.now() - PENDING_STATE_TTL_MS;
     for (const [key, entry] of this.pendingStates) {
       if (entry.created_at <= cutoff) {
         this.pendingStates.delete(key);
@@ -90,12 +140,33 @@ export class OAuthHelper {
   }
 
   /**
+   * Keep the pendingStates map at or below MAX_PENDING_STATES by evicting the
+   * oldest entries first. Map iteration order is insertion order, so the
+   * first keys are always the oldest.
+   */
+  private enforceMapCap(): void {
+    while (this.pendingStates.size > MAX_PENDING_STATES) {
+      const oldestKey = this.pendingStates.keys().next().value;
+      if (oldestKey === undefined) break;
+      this.pendingStates.delete(oldestKey);
+    }
+  }
+
+  /**
    * Exchange an authorization code for tokens and store them in the vault.
+   *
+   * The PKCE `code_verifier` is required and must match the one returned by
+   * {@link verifyState} for the same `state`. The provider recomputes
+   * `sha256(code_verifier)` and rejects the exchange if it does not match
+   * the `code_challenge` it saw at authorize time — so an attacker who
+   * intercepts the authorization code cannot redeem it without also
+   * obtaining the verifier from this server's memory.
    */
   async exchangeCode(
     code: string,
     tenantId: string,
-    userId: string
+    userId: string,
+    codeVerifier: string
   ): Promise<OAuthTokens> {
     const body = new URLSearchParams({
       code,
@@ -103,6 +174,7 @@ export class OAuthHelper {
       client_secret: this.config.client_secret,
       redirect_uri: this.config.redirect_uri,
       grant_type: 'authorization_code',
+      code_verifier: codeVerifier,
     });
 
     let res: Response;

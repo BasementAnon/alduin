@@ -4,6 +4,7 @@ import type { RendererPayload, PresentationBlock, FollowupButton } from './prese
 import { buildFailurePayload } from './presentation.js';
 import { reconcile, SentMessageRegistry } from './reconcile.js';
 import type { ExecutorResult } from '../executor/types.js';
+import { escapeTelegramHtml, markdownToTelegramHtml } from '../channels/telegram/renderer.js';
 
 /**
  * Subscribes to the event bus and streams progress back to the channel
@@ -183,15 +184,29 @@ export class RendererSubscriber {
       this.registry
     );
 
+    // C-1: Every block is rendered to Telegram-safe HTML before being joined.
+    // Raw content (including LLM output in partial/markdown blocks) MUST be
+    // escaped or passed through markdownToTelegramHtml — both of which re-
+    // escape every captured fragment before wrapping it in a tag. Never pass
+    // untrusted text directly to parse_mode: 'html'.
     const simplePayload = {
       text: payload.blocks.map((b) => {
         switch (b.kind) {
-          case 'text': return b.text;
-          case 'markdown': return b.md;
-          case 'code': return `\`\`\`${b.lang}\n${b.source}\`\`\``;
-          case 'card': return `**${b.title}**\n${b.body}`;
-          case 'progress': return `⏳ ${b.label}${b.pct !== undefined ? ` (${b.pct}%)` : ''}`;
-          case 'quote': return `> ${b.text}`;
+          case 'text': return escapeTelegramHtml(b.text);
+          case 'markdown': return markdownToTelegramHtml(b.md);
+          case 'code': {
+            const lang = b.lang ? escapeTelegramHtml(b.lang) : '';
+            const body = escapeTelegramHtml(b.source);
+            return lang
+              ? `<pre><code class="language-${lang}">${body}</code></pre>`
+              : `<pre>${body}</pre>`;
+          }
+          case 'card': return `<b>${escapeTelegramHtml(b.title)}</b>\n${escapeTelegramHtml(b.body)}`;
+          case 'progress': {
+            const label = escapeTelegramHtml(b.label);
+            return `⏳ ${label}${b.pct !== undefined ? ` (${b.pct}%)` : ''}`;
+          }
+          case 'quote': return `<blockquote>${escapeTelegramHtml(b.text)}</blockquote>`;
         }
       }).join('\n\n'),
       parse_mode: 'html' as const,

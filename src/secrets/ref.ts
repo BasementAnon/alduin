@@ -54,6 +54,9 @@ export function resolveSecret(
   return vault.get(input.secret);
 }
 
+/** Maximum nesting depth walked by {@link resolveSecrets}. */
+export const MAX_RESOLVE_DEPTH = 10;
+
 /**
  * Walk a raw (pre-Zod) config object and replace every `{ secret: "..." }`
  * value with the plaintext fetched from the vault.
@@ -61,11 +64,25 @@ export function resolveSecret(
  * Mutates `obj` in place and returns it for chaining.
  * Unknown SecretRefs (scope not in vault) are left in place so that Zod
  * validation can emit a clear error.
+ *
+ * A `depth` parameter caps recursion at {@link MAX_RESOLVE_DEPTH} nested
+ * levels (default 10). YAML parsers like `yaml` can return object graphs
+ * with reference cycles (`&anchor` / `*alias`) — without a cap the walk
+ * would recurse until the stack overflows. On overflow we throw a clear
+ * error rather than silently truncating, so the offending config is
+ * obvious to the operator.
  */
 export function resolveSecrets(
   obj: Record<string, unknown>,
-  vault: CredentialVault | null
+  vault: CredentialVault | null,
+  depth = 0
 ): Record<string, unknown> {
+  if (depth > MAX_RESOLVE_DEPTH) {
+    throw new Error(
+      `Secret resolution depth exceeded (possible cyclic reference): nesting exceeded ${MAX_RESOLVE_DEPTH} levels`
+    );
+  }
+
   for (const [key, value] of Object.entries(obj)) {
     if (isSecretRef(value)) {
       const resolved = resolveSecret(value, vault);
@@ -74,11 +91,11 @@ export function resolveSecrets(
       }
       // If null: leave the SecretRef shape — Zod will reject the non-string value.
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      resolveSecrets(value as Record<string, unknown>, vault);
+      resolveSecrets(value as Record<string, unknown>, vault, depth + 1);
     } else if (Array.isArray(value)) {
       for (const item of value) {
         if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          resolveSecrets(item as Record<string, unknown>, vault);
+          resolveSecrets(item as Record<string, unknown>, vault, depth + 1);
         }
       }
     }

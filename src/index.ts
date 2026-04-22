@@ -75,6 +75,7 @@ import { MemoryManager } from './memory/manager.js';
 import { AlduinEventBus } from './bus/event-bus.js';
 import { RendererSubscriber } from './renderer/subscriber.js';
 import type { PresentationPayload, ChannelTarget } from './channels/adapter.js';
+import { markdownToTelegramHtml, escapeTelegramHtml } from './channels/telegram/renderer.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type { NormalizedEvent, RawChannelEvent, AttachmentRef } from './channels/adapter.js';
@@ -456,9 +457,16 @@ export async function createRuntime(
       // ── 8. Render the response ─────────────────────────────────────────────
       // Add trace button
       const traceId = `${trace.task_id}`;
-      const responseText = response + (trace.total_cost_usd > 0
-        ? `\n\n<i>$${trace.total_cost_usd.toFixed(4)} · ${trace.total_latency_ms}ms</i>`
-        : '');
+      // C-1: Never pass raw LLM output to parse_mode: "HTML" — escape first,
+      // then apply the curated markdown→HTML conversion. markdownToTelegramHtml
+      // re-escapes every captured fragment before wrapping it in a tag, so a
+      // crafted model output like `<script>alert(1)</script>` renders as
+      // literal text rather than being interpreted by Telegram's HTML parser.
+      const renderedResponse = markdownToTelegramHtml(response);
+      const costFooter = trace.total_cost_usd > 0
+        ? `\n\n<i>$${escapeTelegramHtml(trace.total_cost_usd.toFixed(4))} · ${escapeTelegramHtml(String(trace.total_latency_ms))}ms</i>`
+        : '';
+      const responseText = renderedResponse + costFooter;
 
       if (progressSent) {
         // We already sent a progress message — try to edit it

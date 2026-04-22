@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isSecretRef, resolveSecret, resolveSecrets } from './ref.js';
+import { isSecretRef, resolveSecret, resolveSecrets, MAX_RESOLVE_DEPTH } from './ref.js';
 import { CredentialVault } from './vault.js';
 
 // ── isSecretRef ──────────────────────────────────────────────────────────────
@@ -110,5 +110,46 @@ describe('resolveSecrets', () => {
     expect(items[0]!['token']).toBe('tok-abc');
     expect(items[1]!['token']).toBe('static');
     vault.close();
+  });
+
+  it('throws a clear error on a cyclic object (depth cap)', () => {
+    // Build an object that references itself — YAML with `&anchor` / `*alias`
+    // can produce this. Without the depth cap, the walk stack-overflows.
+    const root: Record<string, unknown> = { name: 'root' };
+    root['self'] = root;
+
+    expect(() => resolveSecrets(root, null)).toThrow(
+      /Secret resolution depth exceeded/
+    );
+  });
+
+  it('succeeds on deeply but finitely nested objects just under the cap', () => {
+    // Build a chain of exactly MAX_RESOLVE_DEPTH levels — should NOT throw.
+    const root: Record<string, unknown> = {};
+    let cursor = root;
+    for (let i = 0; i < MAX_RESOLVE_DEPTH; i++) {
+      const next: Record<string, unknown> = {};
+      cursor['next'] = next;
+      cursor = next;
+    }
+    cursor['leaf'] = 'value';
+
+    expect(() => resolveSecrets(root, null)).not.toThrow();
+  });
+
+  it('throws when nesting just exceeds the cap', () => {
+    const root: Record<string, unknown> = {};
+    let cursor = root;
+    // MAX_RESOLVE_DEPTH + 2 levels guarantees overflow even with the
+    // "depth starts at 0, allowed up to MAX" accounting.
+    for (let i = 0; i < MAX_RESOLVE_DEPTH + 2; i++) {
+      const next: Record<string, unknown> = {};
+      cursor['next'] = next;
+      cursor = next;
+    }
+
+    expect(() => resolveSecrets(root, null)).toThrow(
+      /Secret resolution depth exceeded/
+    );
   });
 });

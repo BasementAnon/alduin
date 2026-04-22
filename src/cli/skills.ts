@@ -8,8 +8,8 @@
  *   alduin skills remove <id>
  */
 
-import { existsSync, mkdirSync, cpSync, rmSync, readdirSync } from 'fs';
-import { join, resolve, basename } from 'path';
+import { existsSync, mkdirSync, cpSync, rmSync, statSync } from 'fs';
+import { join, resolve } from 'path';
 import { homedir } from 'os';
 import { SkillRegistry } from '../skills/registry.js';
 import { parseSkillFrontmatter } from '../skills/frontmatter.js';
@@ -133,7 +133,7 @@ function showSkill(id: string): void {
   console.log('');
 }
 
-function addSkill(pathOrUrl: string): void {
+export function addSkill(pathOrUrl: string): void {
   // Only local paths supported for now (git URLs are Phase 5+)
   if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://') || pathOrUrl.startsWith('git@')) {
     console.error('Git URL installs are not yet supported. Use a local file path.');
@@ -146,9 +146,31 @@ function addSkill(pathOrUrl: string): void {
     process.exit(1);
   }
 
+  // Stat first — branch on file vs. directory. Previous implementation called
+  // `readdirSync` unconditionally, which threw ENOTDIR on a plain file path.
+  const stat = statSync(sourcePath);
+  const isFile = stat.isFile();
+  const isDir = stat.isDirectory();
+
+  if (!isFile && !isDir) {
+    console.error(`Not a regular file or directory: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  // Locate the SKILL.md inside a directory source, or use the file directly.
+  const manifestPath = isFile ? sourcePath : join(sourcePath, 'SKILL.md');
+  if (!existsSync(manifestPath)) {
+    console.error(
+      isFile
+        ? `File not found: ${manifestPath}`
+        : `Directory does not contain SKILL.md: ${sourcePath}`
+    );
+    process.exit(1);
+  }
+
   // Parse and validate the skill
-  const content = readFileSync(sourcePath, 'utf-8');
-  const result = parseSkillFrontmatter(content, sourcePath);
+  const content = readFileSync(manifestPath, 'utf-8');
+  const result = parseSkillFrontmatter(content, manifestPath);
   if (!result.ok) {
     console.error(`Invalid skill file: ${result.error}`);
     process.exit(1);
@@ -166,13 +188,19 @@ function addSkill(pathOrUrl: string): void {
     console.warn(`⚠ Skill "${id}" shadows a curated skill with the same name.`);
   }
 
-  // Determine target path
-  const isDir = existsSync(sourcePath) && readdirSync(sourcePath).length > 0 === false;
   const targetDir = join(USER_SKILLS_DIR, id);
   mkdirSync(targetDir, { recursive: true });
 
-  const targetFile = join(targetDir, 'SKILL.md');
-  cpSync(sourcePath, targetFile);
+  if (isFile) {
+    // Copy the single file in as SKILL.md
+    const targetFile = join(targetDir, 'SKILL.md');
+    cpSync(sourcePath, targetFile);
+  } else {
+    // Copy directory contents (so support files like scripts/, examples/, etc. come along).
+    // `cpSync(src, dest, { recursive: true })` copies the *contents* of src into dest
+    // when dest already exists as a directory.
+    cpSync(sourcePath, targetDir, { recursive: true });
+  }
 
   console.log(`Installed skill "${id}" to ${targetDir}`);
 }

@@ -102,7 +102,12 @@ export async function handleOAuthCallback(
   }
 
   try {
-    await helper.exchangeCode(code, context.tenant_id, context.user_id);
+    await helper.exchangeCode(
+      code,
+      context.tenant_id,
+      context.user_id,
+      context.code_verifier
+    );
     return {
       success: true,
       message: `✅ Successfully connected to ${connectorId}!`,

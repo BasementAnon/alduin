@@ -39,6 +39,37 @@ describe('OAuthHelper', () => {
       expect(state).toBeTruthy();
       expect(state.length).toBe(32); // 16 bytes hex
     });
+
+    it('includes PKCE code_challenge and S256 method', () => {
+      const { url } = helper.buildAuthorizeUrl('tenant-1', 'user-42');
+      expect(url).toContain('code_challenge_method=S256');
+      // code_challenge is base64url sha256(verifier) — 43 chars, no padding
+      const match = url.match(/[?&]code_challenge=([A-Za-z0-9_-]+)(?:&|$)/);
+      expect(match).not.toBeNull();
+      expect(match![1].length).toBe(43);
+    });
+
+    it('exchangeCode sends the stored code_verifier back to the token endpoint', async () => {
+      const { state } = helper.buildAuthorizeUrl('tenant-1', 'user-42');
+      const context = helper.verifyState(state);
+      expect(context).not.toBeNull();
+      expect(context!.code_verifier).toBeTruthy();
+
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          access_token: 'at',
+          expires_in: 3600,
+        }),
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      await helper.exchangeCode('code', 'tenant-1', 'user-42', context!.code_verifier);
+
+      const body = fetchSpy.mock.calls[0][1].body as string;
+      expect(body).toContain(`code_verifier=${encodeURIComponent(context!.code_verifier)}`);
+      expect(body).toContain('grant_type=authorization_code');
+    });
   });
 
   describe('verifyState', () => {
@@ -63,17 +94,27 @@ describe('OAuthHelper', () => {
     it('sweeps expired states on buildAuthorizeUrl and verifyState', () => {
       // Manually inject an expired state by reaching into the private map
       const internalHelper = helper as unknown as {
-        pendingStates: Map<string, { tenant_id: string; user_id: string; created_at: number }>;
+        pendingStates: Map<
+          string,
+          {
+            tenant_id: string;
+            user_id: string;
+            code_verifier: string;
+            created_at: number;
+          }
+        >;
       };
 
       internalHelper.pendingStates.set('expired-state', {
         tenant_id: 't',
         user_id: 'u',
+        code_verifier: 'cv-expired',
         created_at: Date.now() - 11 * 60 * 1000, // 11 minutes ago
       });
       internalHelper.pendingStates.set('fresh-state', {
         tenant_id: 't2',
         user_id: 'u2',
+        code_verifier: 'cv-fresh',
         created_at: Date.now(),
       });
 
@@ -92,6 +133,7 @@ describe('OAuthHelper', () => {
       internalHelper.pendingStates.set('expired-2', {
         tenant_id: 'x',
         user_id: 'y',
+        code_verifier: 'cv-2',
         created_at: Date.now() - 15 * 60 * 1000,
       });
       expect(internalHelper.pendingStates.size).toBe(3);
@@ -116,7 +158,7 @@ describe('OAuthHelper', () => {
         })
       );
 
-      const tokens = await helper.exchangeCode('auth-code-123', 'tenant-1', 'user-42');
+      const tokens = await helper.exchangeCode('auth-code-123', 'tenant-1', 'user-42', 'test-verifier');
       expect(tokens.access_token).toBe('at-new');
       expect(tokens.refresh_token).toBe('rt-new');
       expect(tokens.expires_at).toBeTruthy();
@@ -137,7 +179,7 @@ describe('OAuthHelper', () => {
       );
 
       await expect(
-        helper.exchangeCode('bad-code', 't', 'u')
+        helper.exchangeCode('bad-code', 't', 'u', 'test-verifier')
       ).rejects.toThrow('Token exchange failed');
     });
   });
@@ -198,7 +240,7 @@ describe('OAuthHelper', () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeoutErr));
 
       await expect(
-        helper.exchangeCode('code', 't', 'u')
+        helper.exchangeCode('code', 't', 'u', 'test-verifier')
       ).rejects.toThrow('Token endpoint timeout');
     });
 
@@ -216,7 +258,7 @@ describe('OAuthHelper', () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('DNS failure')));
 
       await expect(
-        helper.exchangeCode('code', 't', 'u')
+        helper.exchangeCode('code', 't', 'u', 'test-verifier')
       ).rejects.toThrow('DNS failure');
     });
   });

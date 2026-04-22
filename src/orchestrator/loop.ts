@@ -459,13 +459,15 @@ export class OrchestratorLoop {
     if (!provider) return resultSummaries;
 
     const modelName = this.providerRegistry.resolveModelName(modelString);
+    // Capture the start time BEFORE awaiting synthesis so the reported
+    // latency reflects the actual provider call, not just the
+    // post-call bookkeeping (which was effectively always ~0ms).
+    const startTime = Date.now();
     const result = await provider.complete({
       model: modelName,
       messages: [{ role: 'user', content: synthesisPrompt }],
       max_tokens: this.config.orchestrator.max_planning_tokens,
     });
-
-    const startTime = Date.now();
 
     if (result.ok) {
       this.traceLogger.logEvent(taskId, {
