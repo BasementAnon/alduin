@@ -119,6 +119,14 @@ export class WebhookGateway {
   constructor(config: GatewayConfig = {}) {
     this.app = express();
 
+    if (process.env['ALDUIN_ALLOW_UNSIGNED'] === '1') {
+      console.warn(
+        '[Gateway] WARNING: ALDUIN_ALLOW_UNSIGNED=1 is set. ' +
+          'Unsigned webhook requests may be accepted in development mode. ' +
+          'Never enable this in production.'
+      );
+    }
+
     // Trust proxy is configured from ALDUIN_TRUSTED_PROXIES. Never set
     // `trust proxy: true` — that would let any upstream host spoof the
     // client IP via X-Forwarded-For and bypass per-IP rate limiting.
@@ -233,18 +241,26 @@ export class WebhookGateway {
   }
 
   private verifyRequest(adapter: ChannelAdapter, req: Request): boolean {
-    if (typeof adapter.verifyWebhookSignature === 'function') {
-      const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
-      return adapter.verifyWebhookSignature(
-        req.headers as Record<string, string | string[] | undefined>,
-        rawBody
-      );
-    }
-    return this.isUnsignedAllowed();
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    return adapter.verifyWebhookSignature(
+      req.headers as Record<string, string | string[] | undefined>,
+      rawBody,
+    );
   }
 
+  /**
+   * Whether unsigned webhook requests are permitted.
+   *
+   * Requires `ALDUIN_ENV=development` (explicit dev declaration) AND
+   * `ALDUIN_ALLOW_UNSIGNED=1`. When `ALDUIN_ENV` is unset or any other value,
+   * this returns false — defaulting to deny.
+   *
+   * Note: the `NODE_ENV` variable is intentionally NOT used here because build
+   * tools often set `NODE_ENV=production` for tree-shaking purposes even in
+   * development environments; `ALDUIN_ENV` is an explicit operator signal.
+   */
   private isUnsignedAllowed(): boolean {
-    if (process.env['NODE_ENV'] === 'production') return false;
+    if (process.env['ALDUIN_ENV'] !== 'development') return false;
     return process.env['ALDUIN_ALLOW_UNSIGNED'] === '1';
   }
 

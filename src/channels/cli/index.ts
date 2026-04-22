@@ -106,6 +106,17 @@ export class CliAdapter implements ChannelAdapter {
     this.rl?.prompt();
   }
 
+  /**
+   * CLI has no network transport — it is never reachable via the webhook
+   * gateway, so signature verification is a no-op that always succeeds.
+   */
+  verifyWebhookSignature(
+    _headers: Record<string, string | string[] | undefined>,
+    _body?: Buffer,
+  ): boolean {
+    return true;
+  }
+
   /** Prompt the user again (called after a response is sent) */
   reprompt(): void {
     this.rl?.prompt();

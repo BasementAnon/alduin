@@ -16,6 +16,7 @@ import type { LLMToolCall } from '../types/llm.js';
 import type { PolicyVerdict } from '../auth/policy.js';
 import type { TraceLogger } from '../trace/logger.js';
 import { redactSecrets } from '../memory/redactor.js';
+import { raceWithTimeout } from '../util/timeout.js';
 
 /**
  * Redact secrets and wrap a raw tool output in `<tool_output>` delimiter
@@ -192,28 +193,22 @@ export class MCPToolHost {
       abortSignal: controller.signal,
     } as PluginContext & { abortSignal?: AbortSignal };
 
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-    let timedOut = false;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-        reject(new Error(`Tool "${call.name}" timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-    });
+    const timeoutMessage = `Tool "${call.name}" timed out after ${timeoutMs}ms`;
 
     let result: ToolResult;
     try {
-      result = await Promise.race([
+      result = await raceWithTimeout(
         entry.plugin.invoke(call.name, call.arguments, ctxWithSignal),
-        timeoutPromise,
-      ]);
+        timeoutMs,
+        timeoutMessage,
+      );
     } catch (error) {
-      if (timeoutHandle) clearTimeout(timeoutHandle);
       const errorMsg = error instanceof Error ? error.message : String(error);
       const latencyMs = Date.now() - start;
+      const isTimeout = error instanceof Error && error.message === timeoutMessage;
 
-      if (timedOut) {
+      if (isTimeout) {
+        controller.abort();
         this.logTrace(taskId, 'tool_failed', {
           tool_name: call.name,
           tool_plugin_id: entry.pluginId,
@@ -224,7 +219,7 @@ export class MCPToolHost {
         return {
           status: 'timeout',
           output: '',
-          error: `Tool "${call.name}" timed out after ${timeoutMs}ms`,
+          error: timeoutMessage,
           plugin_id: entry.pluginId,
           latency_ms: latencyMs,
         };
@@ -245,7 +240,6 @@ export class MCPToolHost {
         latency_ms: latencyMs,
       };
     }
-    if (timeoutHandle) clearTimeout(timeoutHandle);
 
     const latencyMs = Date.now() - start;
 

@@ -54,6 +54,7 @@ export async function consumeStream(
 ): Promise<StreamConsumeResult> {
   let content = '';
   let lastPartialAt = 0;
+  let lastPartialContent = '';
   let finalUsage: LLMUsage = { input_tokens: 0, output_tokens: 0 };
   let finishReason: LLMCompletionResponse['finish_reason'] = 'stop';
   let aborted = false;
@@ -75,6 +76,7 @@ export async function consumeStream(
         if (Date.now() - lastPartialAt >= throttleMs) {
           callbacks.onPartial(content);
           lastPartialAt = Date.now();
+          lastPartialContent = content;
         }
         break;
 
@@ -107,8 +109,8 @@ export async function consumeStream(
     }
   }
 
-  // Final partial flush (if there's unsent content)
-  if (content && Date.now() - lastPartialAt > 0) {
+  // Final partial flush (only when there is content not yet delivered via onPartial)
+  if (content && content !== lastPartialContent) {
     callbacks.onPartial(content);
   }
 

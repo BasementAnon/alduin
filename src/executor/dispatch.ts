@@ -10,6 +10,7 @@ import type { Result } from '../types/result.js';
 import type { RecursionGuard } from '../orchestrator/recursion.js';
 import { TraceLogger } from '../trace/logger.js';
 import { writeChildSystemPrompt } from '../orchestrator/prompts.js';
+import { raceWithTimeout } from '../util/timeout.js';
 
 const MAX_CONCURRENCY = 5;
 
@@ -218,17 +219,11 @@ export class ExecutorDispatcher {
         guard,
       );
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(
-          () => reject(new Error(`Child orchestration timed out after ${orch.parent_timeout_remaining_ms}ms`)),
-          orch.parent_timeout_remaining_ms,
-        );
-      });
-
-      const { response, trace: childTrace } = await Promise.race([
+      const { response, trace: childTrace } = await raceWithTimeout(
         childPromise,
-        timeoutPromise,
-      ]);
+        orch.parent_timeout_remaining_ms,
+        `Child orchestration timed out after ${orch.parent_timeout_remaining_ms}ms`,
+      );
 
       const latency_ms = Date.now() - startTime;
 
@@ -363,10 +358,11 @@ export class ExecutorDispatcher {
     let result: Result<LLMCompletionResponse, LLMError>;
 
     try {
-      result = await Promise.race([
+      result = await raceWithTimeout(
         provider.complete(request),
-        this.createTimeout(task.timeout_ms),
-      ]);
+        task.timeout_ms,
+        `Timeout after ${task.timeout_ms}ms`,
+      );
     } catch {
       const latency_ms = Date.now() - startTime;
       return {
@@ -418,14 +414,6 @@ export class ExecutorDispatcher {
         latency_ms,
       },
     };
-  }
-
-  private createTimeout(
-    timeoutMs: number
-  ): Promise<Result<LLMCompletionResponse, LLMError>> {
-    return new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
-    });
   }
 
   private failedResult(

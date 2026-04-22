@@ -75,4 +75,85 @@ describe('redactSecrets', () => {
     expect(result).toContain('[REDACTED_PHONE]');
     expect(result).not.toContain('555-123-4567');
   });
+
+  // ── S5: New pattern coverage ──────────────────────────────────────────────
+
+  it('redacts Slack bot tokens (xoxb-...)', () => {
+    const input = 'slack_token=xoxb-123456789012-1234567890123-AbCdEfGhIjKlMnOp';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_SLACK]');
+    expect(result).not.toContain('xoxb-');
+  });
+
+  it('redacts Slack user tokens (xoxp-...)', () => {
+    const input = 'Authorization: xoxp-9876543210-9876543210987-abcdefghijklmnop';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_SLACK]');
+  });
+
+  it('redacts Google API keys (AIza...)', () => {
+    const input = 'const apiKey = "AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI";';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_GOOGLE_API]');
+    expect(result).not.toContain('AIzaSy');
+  });
+
+  it('redacts Stripe live secret keys (sk_live_...)', () => {
+    const input = 'stripe.setApiKey("sk_live_ABCDEFGHIJKLMNOPQRSTUVWXyz")';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_STRIPE]');
+    expect(result).not.toContain('sk_live_');
+  });
+
+  it('redacts Stripe live restricted keys (rk_live_...)', () => {
+    const input = 'key = rk_live_ABCDEFGHIJKLMNOPQRSTUVWXyz';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_STRIPE]');
+    expect(result).not.toContain('rk_live_');
+  });
+
+  it('redacts Bearer tokens in Authorization headers', () => {
+    const input = 'Authorization: Bearer eyABC123.def456.ghi789';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_BEARER]');
+    expect(result).not.toContain('eyABC123');
+  });
+
+  it('redacts Telegram bot tokens', () => {
+    // Real Telegram bot tokens: {8-10 digits}:{35 alphanumeric/underscore/dash chars}
+    const input = 'bot token: 123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_TELEGRAM_BOT]');
+    expect(result).not.toContain('123456789:');
+  });
+
+  it('redacts GitHub fine-grained PATs (github_pat_...)', () => {
+    const input = 'token: github_pat_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef';
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_GITHUB_FINEGRAINED]');
+    expect(result).not.toContain('github_pat_');
+    // Must not also fire the generic ghp_ pattern
+    expect(result).not.toContain('[REDACTED_GITHUB]');
+  });
+
+  it('redacts PEM private keys', () => {
+    const input = [
+      '-----BEGIN RSA PRIVATE KEY-----',
+      'MIIEowIBAAKCAQEA0Z3VS5JJcds3xHn/ygWep4',
+      '-----END RSA PRIVATE KEY-----',
+    ].join('\n');
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_PRIVATE_KEY]');
+    expect(result).not.toContain('MIIEowIBAAKCAQEA');
+  });
+
+  it('redacts generic OPENSSH private keys', () => {
+    const input = [
+      '-----BEGIN OPENSSH PRIVATE KEY-----',
+      'b3BlbnNzaC1rZXktdjEAAAA=',
+      '-----END OPENSSH PRIVATE KEY-----',
+    ].join('\n');
+    const result = redactSecrets(input);
+    expect(result).toContain('[REDACTED_PRIVATE_KEY]');
+  });
 });

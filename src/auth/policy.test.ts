@@ -191,4 +191,74 @@ rules:
     expect(verdict.allowed).toBe(true);
     expect(verdict.denied_reason).toBeUndefined();
   });
+
+  // ── applies_to_privileged hardening (S1) ─────────────────────────────────
+
+  it('applies_to_privileged:true blocks owner with allowed:false', () => {
+    writeFileSync(policyPath, `
+rules:
+  - applies_to_privileged: true
+    allowed: false
+    denied_reason: "Maintenance window — all roles blocked"
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+
+    const ownerVerdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(ownerVerdict.allowed).toBe(false);
+    expect(ownerVerdict.denied_reason).toContain('Maintenance window');
+
+    const adminVerdict = engine.evaluate(makeCtx({ user_role: 'admin' }));
+    expect(adminVerdict.allowed).toBe(false);
+  });
+
+  it('applies_to_privileged:true enforces cost_ceiling_usd AND other fields together', () => {
+    writeFileSync(policyPath, `
+rules:
+  - applies_to_privileged: true
+    cost_ceiling_usd: 3.00
+    requires_confirmation: [delete]
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+
+    const verdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(verdict.cost_ceiling_usd).toBe(3.0);
+    expect(verdict.requires_confirmation).toContain('delete');
+    // allowed should remain true (rule doesn't set allowed:false)
+    expect(verdict.allowed).toBe(true);
+  });
+
+  it('applies_to_privileged rule without the flag does NOT block owner (regression)', () => {
+    // A rule that sets allowed:false but lacks applies_to_privileged must not
+    // affect privileged roles — guards against accidental lockout.
+    writeFileSync(policyPath, `
+rules:
+  - allowed: false
+    denied_reason: "Only applies to non-privileged"
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+
+    const ownerVerdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(ownerVerdict.allowed).toBe(true);
+
+    // But the same rule DOES apply to members
+    const memberVerdict = engine.evaluate(makeCtx({ user_role: 'member' }));
+    expect(memberVerdict.allowed).toBe(false);
+  });
+
+  it('cost_ceiling_usd from a non-applies_to_privileged rule still binds owners', () => {
+    // Budget caps always apply regardless of applies_to_privileged flag.
+    writeFileSync(policyPath, `
+rules:
+  - cost_ceiling_usd: 1.50
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+
+    const verdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(verdict.cost_ceiling_usd).toBe(1.5);
+    expect(verdict.allowed).toBe(true);
+  });
 });

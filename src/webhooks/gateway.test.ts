@@ -18,6 +18,29 @@ function makeMockAdapter(opts: MockAdapterOpts): ChannelAdapter & {
   const events: RawChannelEvent[] = [];
   let handler: ((e: RawChannelEvent) => void) | null = null;
 
+  // verifyWebhookSignature is now REQUIRED on ChannelAdapter.
+  // noVerify:true → pass-through (always returns true, no transport to sign).
+  // webhookSecret provided → real HMAC-style check against x-secret-token header.
+  let verifyWebhookSignature: ChannelAdapter['verifyWebhookSignature'];
+  if (opts.noVerify || opts.webhookSecret === undefined) {
+    verifyWebhookSignature = (_headers, _body) => true;
+  } else {
+    const { timingSafeEqual } = require('node:crypto');
+    verifyWebhookSignature = (
+      headers: Record<string, string | string[] | undefined>,
+      _body?: Buffer
+    ): boolean => {
+      const secret = opts.webhookSecret!;
+      const headerVal = headers['x-secret-token'];
+      const received = typeof headerVal === 'string' ? headerVal : '';
+      if (received.length === 0 || secret.length === 0) return false;
+      const a = Buffer.from(secret, 'utf8');
+      const b = Buffer.from(received, 'utf8');
+      if (a.length !== b.length) return false;
+      return timingSafeEqual(a, b);
+    };
+  }
+
   const adapter: ChannelAdapter & { receivedEvents: RawChannelEvent[] } = {
     id: opts.id,
     capabilities: {
@@ -36,29 +59,13 @@ function makeMockAdapter(opts: MockAdapterOpts): ChannelAdapter & {
     send: vi.fn().mockResolvedValue({ message_id: 'x', channel: opts.id, thread_id: 't' }),
     edit: vi.fn().mockResolvedValue(undefined),
     onEvent: (fn: (e: RawChannelEvent) => void) => { handler = fn; },
+    verifyWebhookSignature,
     get receivedEvents() { return events; },
     dispatchRawEvent: (e: RawChannelEvent) => {
       events.push(e);
       handler?.(e);
     },
   };
-
-  if (!opts.noVerify && opts.webhookSecret !== undefined) {
-    const { timingSafeEqual } = require('node:crypto');
-    adapter.verifyWebhookSignature = (
-      headers: Record<string, string | string[] | undefined>,
-      _body?: Buffer
-    ): boolean => {
-      const secret = opts.webhookSecret!;
-      const headerVal = headers['x-secret-token'];
-      const received = typeof headerVal === 'string' ? headerVal : '';
-      if (received.length === 0 || secret.length === 0) return false;
-      const a = Buffer.from(secret, 'utf8');
-      const b = Buffer.from(received, 'utf8');
-      if (a.length !== b.length) return false;
-      return timingSafeEqual(a, b);
-    };
-  }
 
   return adapter;
 }
@@ -68,6 +75,7 @@ function makeMockAdapter(opts: MockAdapterOpts): ChannelAdapter & {
 describe('WebhookGateway', () => {
   afterEach(() => {
     delete process.env['NODE_ENV'];
+    delete process.env['ALDUIN_ENV'];
     delete process.env['ALDUIN_ALLOW_UNSIGNED'];
     delete process.env['ALDUIN_TRUST_PROXY'];
   });
@@ -144,10 +152,9 @@ describe('WebhookGateway', () => {
   });
 
   it('does not crash if adapter has no dispatchRawEvent', async () => {
-    process.env['ALDUIN_ALLOW_UNSIGNED'] = '1';
     const gw = new WebhookGateway({ rate_limit_capacity: 100 });
 
-    // Build an adapter without dispatchRawEvent
+    // Build an adapter without dispatchRawEvent (but WITH verifyWebhookSignature — now required)
     const bareAdapter: ChannelAdapter = {
       id: 'bare',
       capabilities: {
@@ -160,6 +167,7 @@ describe('WebhookGateway', () => {
       send: vi.fn().mockResolvedValue({ message_id: 'x', channel: 'bare', thread_id: 't' }),
       edit: vi.fn().mockResolvedValue(undefined),
       onEvent: vi.fn(),
+      verifyWebhookSignature: () => true,
       // No dispatchRawEvent — intentionally omitted
     };
     gw.registerAdapter(bareAdapter);
@@ -178,6 +186,7 @@ describe('WebhookGateway', () => {
 describe('WebhookGateway — signature verification', () => {
   afterEach(() => {
     delete process.env['NODE_ENV'];
+    delete process.env['ALDUIN_ENV'];
     delete process.env['ALDUIN_ALLOW_UNSIGNED'];
   });
 
@@ -213,38 +222,41 @@ describe('WebhookGateway — signature verification', () => {
     expect(res.status).toBe(200);
   });
 
-  it('401 for adapter without verifyWebhookSignature in production', async () => {
-    process.env['NODE_ENV'] = 'production';
+  it('pass-through adapter (noVerify) always returns 200 regardless of env', async () => {
+    // All adapters now implement verifyWebhookSignature. Adapters with no
+    // network transport (CLI, test pass-through) return true unconditionally.
     const gw = new WebhookGateway({ rate_limit_capacity: 100 });
-    gw.registerAdapter(makeMockAdapter({ id: 'nosig', noVerify: true }));
+    gw.registerAdapter(makeMockAdapter({ id: 'passthru', noVerify: true }));
 
     const res = await request(gw.app)
-      .post('/webhooks/nosig')
+      .post('/webhooks/passthru')
       .send({ update_id: 4 });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
   });
 
-  it('401 for adapter without verifyWebhookSignature in dev (no ALDUIN_ALLOW_UNSIGNED)', async () => {
-    delete process.env['NODE_ENV'];
-    delete process.env['ALDUIN_ALLOW_UNSIGNED'];
+  it('adapter returning false → 401, regardless of ALDUIN_ALLOW_UNSIGNED', async () => {
+    // ALDUIN_ALLOW_UNSIGNED is a fallback for adapters without transport;
+    // once an adapter explicitly returns false from verifyWebhookSignature,
+    // the request is rejected — no env-var override.
+    process.env['ALDUIN_ALLOW_UNSIGNED'] = '1';
     const gw = new WebhookGateway({ rate_limit_capacity: 100 });
-    gw.registerAdapter(makeMockAdapter({ id: 'nosig', noVerify: true }));
+    // Secret-checking adapter; wrong/missing header → returns false
+    gw.registerAdapter(makeMockAdapter({ id: 'strict', webhookSecret: 'my-secret' }));
 
     const res = await request(gw.app)
-      .post('/webhooks/nosig')
+      .post('/webhooks/strict')
       .send({ update_id: 5 });
     expect(res.status).toBe(401);
   });
 
-  it('200 for adapter without verifyWebhookSignature when ALDUIN_ALLOW_UNSIGNED=1', async () => {
+  it('emits a startup warning when ALDUIN_ALLOW_UNSIGNED=1 is set', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { /* suppress */ });
     process.env['ALDUIN_ALLOW_UNSIGNED'] = '1';
-    const gw = new WebhookGateway({ rate_limit_capacity: 100 });
-    gw.registerAdapter(makeMockAdapter({ id: 'nosig', noVerify: true }));
 
-    const res = await request(gw.app)
-      .post('/webhooks/nosig')
-      .send({ update_id: 6 });
-    expect(res.status).toBe(200);
+    new WebhookGateway({ rate_limit_capacity: 100 });
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ALDUIN_ALLOW_UNSIGNED=1'));
+    warnSpy.mockRestore();
   });
 
   it('ALDUIN_ALLOW_UNSIGNED=1 does NOT bypass adapter verification', async () => {

@@ -101,6 +101,13 @@ interface PolicyRule {
   channels?: string[];
   /** Whether this applies in groups, DMs, or both */
   scope?: 'group' | 'dm' | 'all';
+  /**
+   * When true, this rule is evaluated against owner/admin roles too.
+   * Defaults to false — privileged roles skip non-privileged rules.
+   * Use with `allowed: false` for maintenance windows, or with
+   * `cost_ceiling_usd` for hard budget caps that apply to everyone.
+   */
+  applies_to_privileged?: boolean;
   /** Overrides on the verdict */
   allowed?: boolean;
   denied_reason?: string;
@@ -185,14 +192,19 @@ export class PolicyEngine {
       return { ...this.defaultVerdict, allowed: true };
     }
 
-    // Privileged-but-budgeted: allow everything by default, but a rule that
-    // explicitly sets `cost_ceiling_usd` still binds the user. This protects
-    // against a compromised owner token draining the budget.
+    // Privileged-but-hardened: start with the permissive default, then apply
+    // any rule that (a) matches the context AND either (b1) explicitly opts in
+    // via `applies_to_privileged: true` OR (b2) sets `cost_ceiling_usd` (which
+    // always binds every role to prevent runaway spend on compromised tokens).
     if (isPrivileged) {
       let verdict: PolicyVerdict = { ...this.defaultVerdict, allowed: true };
       for (const rule of this.rules) {
         if (!this.ruleMatches(rule, context)) continue;
-        if (rule.cost_ceiling_usd !== undefined) {
+        if (rule.applies_to_privileged) {
+          // Full rule application — includes allowed:false, requires_confirmation, etc.
+          verdict = this.applyRule(verdict, rule);
+        } else if (rule.cost_ceiling_usd !== undefined) {
+          // Budget cap always applies regardless of applies_to_privileged flag.
           verdict = { ...verdict, cost_ceiling_usd: rule.cost_ceiling_usd };
         }
       }

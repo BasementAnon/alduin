@@ -26,10 +26,26 @@ const SECRET_PATTERNS: Array<[RegExp, string]> = [
   // Anthropic must come before OpenAI (sk-ant- is a sub-prefix of sk-)
   [/sk-ant-[a-zA-Z0-9_-]{20,}/g, '[REDACTED_ANTHROPIC]'],
   [/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_OPENAI]'],
+  // GitHub fine-grained PATs (must come before generic ghp_ PATs)
+  [/github_pat_[A-Za-z0-9_]{22,}/g, '[REDACTED_GITHUB_FINEGRAINED]'],
   [/ghp_[a-zA-Z0-9]{20,}/g, '[REDACTED_GITHUB]'],
   // JWT: three base64url segments separated by dots
   [/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[REDACTED_JWT]'],
   [/AKIA[A-Z0-9]{16}/g, '[REDACTED_AWS_KEY]'],
+  // Slack tokens (bot, user, app, socket)
+  [/xox[bpas]-[0-9A-Za-z-]{10,}/g, '[REDACTED_SLACK]'],
+  // Google API keys
+  [/AIza[0-9A-Za-z-_]{35}/g, '[REDACTED_GOOGLE_API]'],
+  // Stripe live secret/restricted keys
+  [/[sr]k_live_[0-9A-Za-z]{24,}/g, '[REDACTED_STRIPE]'],
+  // Generic Bearer tokens in Authorization headers
+  [/Bearer\s+[A-Za-z0-9\-._~+/]+=*/g, '[REDACTED_BEARER]'],
+  // AWS secret access keys: 40-char base64 not adjacent to other alphanumeric chars
+  [/(?<=[^A-Za-z0-9/+=])[A-Za-z0-9/+=]{40}(?=[^A-Za-z0-9/+=])/g, '[REDACTED_AWS_SECRET]'],
+  // Telegram bot tokens
+  [/\d{8,10}:[A-Za-z0-9_-]{35}/g, '[REDACTED_TELEGRAM_BOT]'],
+  // PEM private keys (RSA, EC, OpenSSH, generic)
+  [/-----BEGIN\s(?:RSA\s|EC\s|OPENSSH\s)?PRIVATE\sKEY-----[\s\S]*?-----END\s(?:RSA\s|EC\s|OPENSSH\s)?PRIVATE\sKEY-----/g, '[REDACTED_PRIVATE_KEY]'],
 ];
 
 const PII_PATTERNS: Array<[RegExp, string]> = [

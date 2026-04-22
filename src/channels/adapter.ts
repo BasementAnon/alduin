@@ -139,18 +139,20 @@ export interface ChannelAdapter {
   /**
    * Verify an inbound webhook request's cryptographic signature.
    *
-   * Adapters that receive webhooks MUST implement this. The gateway calls it
-   * before any other processing. Adapters that don't implement it (e.g. CLI,
-   * long-poll-only) leave this undefined — the gateway will fail-closed with
-   * 401 in production mode for such adapters.
+   * Required on all adapters. The gateway calls this before any other
+   * processing and will 401 if it returns false.
    *
-   * Implementations MUST use crypto.timingSafeEqual (not ===) for secret
-   * comparison to prevent timing side-channels.
+   * Adapters that operate without a network transport (e.g. CLI) MUST
+   * return `true` unconditionally — they are never reachable via the webhook
+   * gateway and therefore need no signature check.
+   *
+   * Adapters that receive real webhooks MUST use crypto.timingSafeEqual
+   * (not ===) for secret comparison to prevent timing side-channels.
    *
    * @param headers - The raw request headers (lowercase keys)
    * @param body - The raw request body buffer (for HMAC-based schemes)
    */
-  verifyWebhookSignature?(headers: Record<string, string | string[] | undefined>, body?: Buffer): boolean;
+  verifyWebhookSignature(headers: Record<string, string | string[] | undefined>, body?: Buffer): boolean;
 
   /**
    * Receive a raw webhook event dispatched by the gateway.
