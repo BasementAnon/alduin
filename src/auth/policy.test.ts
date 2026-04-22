@@ -1,0 +1,132 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { PolicyEngine } from './policy.js';
+import type { PolicyContext } from './policy.js';
+import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { mkdtempSync, rmSync } from 'node:fs';
+
+function makeCtx(overrides: Partial<PolicyContext> = {}): PolicyContext {
+  return {
+    channel: 'telegram',
+    tenant_id: 'acme',
+    user_id: 'user-1',
+    user_role: 'member',
+    is_group: false,
+    session_id: 'sess-1',
+    ...overrides,
+  };
+}
+
+describe('PolicyEngine', () => {
+  let tmpDir: string;
+  let policyPath: string;
+  let engine: PolicyEngine;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'alduin-policy-'));
+    policyPath = join(tmpDir, 'policy.yaml');
+  });
+
+  afterEach(() => {
+    engine?.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('owner always gets the permissive default', () => {
+    engine = new PolicyEngine();
+    const verdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.allowed_skills).toContain('*');
+    expect(verdict.model_tier_max).toBe('frontier');
+  });
+
+  it('admin always gets the permissive default', () => {
+    engine = new PolicyEngine();
+    const verdict = engine.evaluate(makeCtx({ user_role: 'admin' }));
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.allowed_executors).toContain('*');
+  });
+
+  it('member in DM gets the default verdict', () => {
+    engine = new PolicyEngine();
+    const verdict = engine.evaluate(makeCtx({ user_role: 'member', is_group: false }));
+    expect(verdict.allowed).toBe(true);
+  });
+
+  it('member in group gets restricted defaults (requires_confirmation set)', () => {
+    engine = new PolicyEngine();
+    const verdict = engine.evaluate(makeCtx({ user_role: 'member', is_group: true }));
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.requires_confirmation.length).toBeGreaterThan(0);
+    expect(verdict.requires_confirmation).toContain('file_write');
+  });
+
+  it('guest in DM gets the default (no custom rules)', () => {
+    engine = new PolicyEngine();
+    const verdict = engine.evaluate(makeCtx({ user_role: 'guest', is_group: false }));
+    expect(verdict.allowed).toBe(true);
+  });
+
+  it('loads custom rules from a YAML file', () => {
+    writeFileSync(policyPath, `
+rules:
+  - roles: [guest]
+    scope: dm
+    allowed: false
+    denied_reason: "Guests cannot use this bot in DMs."
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+    const verdict = engine.evaluate(makeCtx({ user_role: 'guest', is_group: false }));
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.denied_reason).toContain('Guests');
+  });
+
+  it('rules apply in order (later overrides earlier)', () => {
+    writeFileSync(policyPath, `
+rules:
+  - roles: [member]
+    cost_ceiling_usd: 0.50
+  - roles: [member]
+    scope: dm
+    cost_ceiling_usd: 1.00
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+
+    // In DM: second rule overrides → 1.00
+    const dmVerdict = engine.evaluate(makeCtx({ user_role: 'member', is_group: false }));
+    expect(dmVerdict.cost_ceiling_usd).toBe(1.0);
+
+    // In group: first rule applies → 0.50 (second doesn't match DM scope)
+    const groupVerdict = engine.evaluate(makeCtx({ user_role: 'member', is_group: true }));
+    expect(groupVerdict.cost_ceiling_usd).toBe(0.5);
+  });
+
+  it('custom default overrides the built-in default', () => {
+    writeFileSync(policyPath, `
+default:
+  cost_ceiling_usd: 0.10
+  model_tier_max: cheap
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+    // Non-admin users should get the custom default
+    const verdict = engine.evaluate(makeCtx({ user_role: 'member' }));
+    expect(verdict.cost_ceiling_usd).toBe(0.10);
+    expect(verdict.model_tier_max).toBe('cheap');
+  });
+
+  it('addRule works for programmatic policy changes', () => {
+    engine = new PolicyEngine();
+    engine.addRule({
+      roles: ['guest'],
+      allowed: false,
+      denied_reason: 'No guests allowed',
+    });
+
+    const verdict = engine.evaluate(makeCtx({ user_role: 'guest' }));
+    expect(verdict.allowed).toBe(false);
+  });
+});
