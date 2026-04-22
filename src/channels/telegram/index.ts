@@ -12,7 +12,7 @@
 
 import { timingSafeEqual } from 'node:crypto';
 import { Bot, webhookCallback } from 'grammy';
-import type { Update } from 'grammy/types';
+import type { Update, UserFromGetMe } from 'grammy/types';
 import type { RequestHandler } from 'express';
 import type {
   ChannelAdapter,
@@ -33,6 +33,19 @@ export interface TelegramAdapterConfig {
   webhook_url?: string;
   /** Secret token for webhook signature validation */
   webhook_secret?: string;
+  /**
+   * Optional allowlist of Telegram numeric user IDs permitted to send messages.
+   * When omitted or empty, all users are allowed (open access — backward compatible).
+   * Messages from users not in this list are silently dropped before session
+   * resolution, ingestion, or any LLM call.
+   */
+  allowed_user_ids?: number[];
+  /**
+   * Pre-set bot identity, bypassing the `getMe` API call on first use.
+   * Intended for unit tests only — production deployments leave this unset.
+   * @internal
+   */
+  _botInfo?: UserFromGetMe;
 }
 
 export class TelegramAdapter implements ChannelAdapter {
@@ -45,11 +58,26 @@ export class TelegramAdapter implements ChannelAdapter {
 
   constructor(config: TelegramAdapterConfig) {
     this.config = config;
-    this.bot = new Bot(config.token);
+    this.bot = new Bot(
+      config.token,
+      config._botInfo ? { botInfo: config._botInfo } : undefined
+    );
 
     // Wire all updates through our normalizer
     // grammy v1 uses middleware, not event emitter — handle all message types
     this.bot.use((ctx) => {
+      // ── Allowlist check (channel-level gate, runs before everything else) ──
+      const allowedIds = this.config.allowed_user_ids;
+      if (allowedIds && allowedIds.length > 0) {
+        const senderId = ctx.from?.id ?? null;
+        if (senderId === null || !allowedIds.includes(senderId)) {
+          console.warn(
+            `[Telegram] Rejected message from unauthorized Telegram user ${senderId ?? 'unknown'}`
+          );
+          return;
+        }
+      }
+
       if (!this.eventHandler) return;
       const raw: RawChannelEvent = {
         channel: 'telegram',
@@ -159,6 +187,15 @@ export class TelegramAdapter implements ChannelAdapter {
   /** Parse a raw Update payload into a NormalizedEvent (exposed for testing) */
   parseUpdate(update: Update) {
     return parseUpdate(update);
+  }
+
+  /**
+   * Feed a raw Telegram Update through the grammy middleware chain.
+   * Exposed for unit tests — do not call in production code.
+   * @internal
+   */
+  async handleUpdateForTest(update: Update): Promise<void> {
+    await this.bot.handleUpdate(update);
   }
 
   /**

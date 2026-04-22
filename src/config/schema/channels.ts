@@ -9,6 +9,13 @@ export const telegramChannelConfigSchema = z.object({
   webhook_url: z.string().url().optional(),
   /** Name of the env var holding the webhook secret token. */
   webhook_secret_env: z.string().optional(),
+  /**
+   * Optional allowlist of Telegram numeric user IDs permitted to interact with
+   * the bot. When omitted or empty, all users are allowed (open access).
+   * Messages from any user not in this list are silently dropped before
+   * reaching the orchestrator, session resolver, or any LLM call.
+   */
+  allowed_user_ids: z.array(z.number()).optional(),
 });
 
 /** Telegram channel configuration. */

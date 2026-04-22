@@ -147,6 +147,15 @@ channels:
     # webhook_url: https://bot.example.com/webhooks/telegram   # required in webhook mode
     # webhook_secret_env: ALDUIN_WEBHOOK_SECRET                # optional but recommended
 
+    # Optional: restrict bot access to specific Telegram user IDs.
+    # When set, messages from any user NOT in this list are silently dropped
+    # before reaching the orchestrator, session resolver, or any LLM call.
+    # When omitted or left empty, all users are allowed (open access).
+    # Find your Telegram user ID by messaging @userinfobot on Telegram.
+    # allowed_user_ids:
+    #   - 123456789       # your Telegram user ID
+    #   - 987654321       # another authorized user
+
 # ── Tenants ───────────────────────────────────────────────────────────────────
 # The default tenant ID used for new sessions. Multi-tenant deployments can
 # route different bots to different tenant IDs.
