@@ -60,10 +60,12 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 ## Quickstart
 
+> **Full setup guide:** [docs/QUICKSTART.md](docs/QUICKSTART.md)
+
 ```bash
 npm install
 npm run build
-npx alduin init          # interactive first-run wizard
+npm run init             # interactive first-run wizard
 ```
 
 The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
