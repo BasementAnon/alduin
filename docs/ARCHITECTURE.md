@@ -421,7 +421,7 @@ MVP ships a curated bundle of 6: `summarize`, `research`, `code-review`, `plan`,
 
 ### Deterministic Pipelines
 
-For repeatable workflows the orchestrator builds a pipeline definition once, then an XState-based engine runs it mechanically. No LLM tokens on orchestration after the initial plan. Supports parallel branches, conditional stops, iteration.
+For repeatable workflows the orchestrator builds a pipeline definition once, then a lightweight deterministic step runner executes it mechanically. No LLM tokens on orchestration after the initial plan. Supports parallel branches, conditional stops, iteration.
 
 ### Resilience
 

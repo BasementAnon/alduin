@@ -1,5 +1,12 @@
 node_modules/
 dist/
+
+# Compiled SDK artifacts must never live alongside .ts sources.
+# The plugin-sdk emits to dist/; any .js/.d.ts found in src/ is stale build output.
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
 .env
 .env.local
 *.log

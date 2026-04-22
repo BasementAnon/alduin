@@ -107,6 +107,29 @@ describe('AuditLog — HMAC chain', () => {
     expect(() => verifyAuditLogOrThrow(log)).toThrow('Audit log integrity check failed');
   });
 
+  it('serialises object old/new values as JSON (not [object Object])', () => {
+    tmpDir = makeTmpDir();
+    const logPath = join(tmpDir, 'audit.log');
+    const log = new AuditLog(logPath, KEY);
+
+    log.log({
+      actor: 'alice',
+      action: 'policy.update',
+      old_value: { limit: 5 },
+      new_value: { limit: 10, tags: ['a', 'b'] },
+    });
+
+    const content = readFileSync(logPath, 'utf-8');
+    expect(content).not.toContain('[object Object]');
+    expect(content).toContain('old={"limit":5}');
+    expect(content).toContain('new={"limit":10,"tags":["a","b"]}');
+
+    // Line must remain single-line so the HMAC chain stays verifiable
+    const lines = content.split('\n').filter((l) => l.trim().length > 0);
+    expect(lines.length).toBe(1);
+    expect(log.verify()).toEqual({ ok: true });
+  });
+
   it('different HMAC keys produce different hashes (key isolation)', () => {
     tmpDir = makeTmpDir();
     const logPath1 = join(tmpDir, 'log1.log');

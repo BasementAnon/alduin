@@ -61,6 +61,15 @@ export interface GatewayConfig {
 export class WebhookGateway {
   readonly app: ReturnType<typeof express>;
   private adapters = new Map<string, ChannelAdapter>();
+  /**
+   * Per-channel custom handlers (e.g. Grammy's Telegram webhook handler).
+   * These run AFTER the shared pre-checks (CORS strip, signature verification,
+   * rate limiting, dedup) but REPLACE the generic dispatchRawEvent step.
+   * Stored in a map rather than registered as sibling Express routes so that
+   * Express 5's first-match-wins semantics don't shadow specific routes with
+   * the /webhooks/:channel catch-all.
+   */
+  private customHandlers = new Map<string, (req: Request, res: Response, next: NextFunction) => void>();
   private rateLimiter: TokenBucket;
   private dedupe: DedupeCache;
 
@@ -108,7 +117,9 @@ export class WebhookGateway {
 
     const tgAdapter = adapter as TelegramAdapter;
     if (adapter.id === 'telegram' && typeof tgAdapter.getWebhookHandler === 'function') {
-      this.app.post('/webhooks/telegram', tgAdapter.getWebhookHandler());
+      // Register as a custom handler, not a sibling route. The catch-all
+      // at /webhooks/:channel would otherwise shadow this under Express 5.
+      this.customHandlers.set('telegram', tgAdapter.getWebhookHandler());
     }
   }
 
@@ -146,6 +157,14 @@ export class WebhookGateway {
       return;
     }
 
+    // If an adapter registered a custom handler (e.g. Grammy's Telegram
+    // webhook handler), delegate to it. It's responsible for responding.
+    const custom = this.customHandlers.get(channel);
+    if (custom) {
+      custom(req, res, _next);
+      return;
+    }
+
     // Dispatch via the typed interface
     const event: RawChannelEvent = {
       channel,
@@ -154,7 +173,7 @@ export class WebhookGateway {
     };
 
     try {
-      if (adapter.id !== 'telegram' && typeof adapter.dispatchRawEvent === 'function') {
+      if (typeof adapter.dispatchRawEvent === 'function') {
         adapter.dispatchRawEvent(event);
       }
     } catch (err) {

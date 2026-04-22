@@ -266,10 +266,11 @@ function main(): void {
   // 2. Compute input SHA
   const inputSha = computeInputSha(pluginSchemas);
 
-  // 3. Convert Zod → JSON Schema
+  // 3. Convert Zod → JSON Schema.
+  // v3.25 emits the $schema field automatically; passing it as an option is
+  // no longer valid in the types.
   const rawSchema = zodToJsonSchema(alduinConfigSchema, {
     target: 'jsonSchema7',
-    $schema: true,
   }) as JsonSchemaNode;
 
   // 4. Enrich with hints

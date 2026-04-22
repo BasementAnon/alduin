@@ -2,7 +2,7 @@
   "id": "anthropic",
   "version": "0.1.0",
   "kind": "provider",
-  "entry": "./src/index.ts",
+  "entry": "./dist/index.js",
   "description": "Anthropic Claude provider (Claude Opus, Sonnet, Haiku)",
   "providers": ["anthropic"],
   "providerAuthEnvVars": {

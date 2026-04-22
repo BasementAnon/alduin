@@ -570,6 +570,9 @@ export async function createRuntime(
       blobStore.close();
       sessionStore.close();
       policyEngine.close();
+      // authDb is opened alongside sessionStore for role lookups — must be
+      // closed explicitly or better-sqlite3 leaks a native handle between tests.
+      try { authDb.close(); } catch { /* best effort */ }
     },
   };
 }

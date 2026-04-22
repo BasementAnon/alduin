@@ -215,14 +215,21 @@ async function loadSinglePlugin(
     }
   }
 
-  // 3. Resolve and load entry module
-  const entryPath = resolve(dir, manifest.entry);
-  if (!existsSync(entryPath)) {
+  // 3. Resolve and load entry module.
+  //
+  // The manifest's `entry` declares the *production* path — typically
+  // `./dist/index.js`. In dev (tsx/vitest) we want to run from TypeScript
+  // source, so we transparently fall back: if the declared .js path doesn't
+  // exist but a sibling .ts source does, use it instead. This lets the same
+  // manifest work across dev (source) and prod (compiled) without a build
+  // step being a hard prerequisite for tests.
+  const entryPath = resolveEntryPath(resolve(dir, manifest.entry));
+  if (!entryPath) {
     return {
       ok: false,
       error: {
         pluginId: manifest.id,
-        message: `Entry file not found: ${entryPath} (declared as "${manifest.entry}" in ${manifestPath}). Build the plugin first.`,
+        message: `Entry file not found: ${resolve(dir, manifest.entry)} (declared as "${manifest.entry}" in ${manifestPath}). Build the plugin first.`,
         code: 'entry_not_found',
       },
     };
@@ -252,6 +259,29 @@ async function loadSinglePlugin(
       source,
     },
   };
+}
+
+/**
+ * Resolve a plugin entry path, falling back between .js (prod) and .ts (dev).
+ *
+ * Strategy:
+ *   1. If the declared path exists, use it as-is.
+ *   2. If it's a `.js` path that doesn't exist, try the sibling `.ts`.
+ *   3. If it's a `.ts` path that doesn't exist, try the sibling `.js`.
+ *   4. If neither exists, return null.
+ *
+ * Returns the absolute path that actually exists, or null.
+ */
+function resolveEntryPath(declaredPath: string): string | null {
+  if (existsSync(declaredPath)) return declaredPath;
+
+  const tsVariant = declaredPath.replace(/\.js$/, '.ts');
+  if (tsVariant !== declaredPath && existsSync(tsVariant)) return tsVariant;
+
+  const jsVariant = declaredPath.replace(/\.ts$/, '.js');
+  if (jsVariant !== declaredPath && existsSync(jsVariant)) return jsVariant;
+
+  return null;
 }
 
 // ── Entry module loading ────────────────────────────────────────────────────

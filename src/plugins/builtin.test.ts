@@ -67,11 +67,16 @@ describe('Builtin provider plugins', () => {
         }
       });
 
-      it('has an entry module at the declared path', () => {
+      it('has an entry module (either compiled .js or .ts source)', () => {
         const manifestPath = join(pluginDir, 'alduin.plugin.json');
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-        const entryPath = join(pluginDir, manifest.entry);
-        expect(existsSync(entryPath)).toBe(true);
+
+        // Manifest declares the production path (./dist/index.js). Pre-build
+        // the compiled artefact won't exist but the .ts source will — the
+        // loader's resolveEntryPath() falls back between them. Accept either.
+        const declared = join(pluginDir, manifest.entry);
+        const tsFallback = declared.replace(/\.js$/, '.ts').replace('/dist/', '/src/');
+        expect(existsSync(declared) || existsSync(tsFallback)).toBe(true);
       });
 
       it('declares provider IDs in the manifest', () => {

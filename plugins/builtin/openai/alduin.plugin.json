@@ -2,7 +2,7 @@
   "id": "openai",
   "version": "0.1.0",
   "kind": "provider",
-  "entry": "./src/index.ts",
+  "entry": "./dist/index.js",
   "description": "OpenAI provider (GPT-4, GPT-4.1, o-series)",
   "providers": ["openai"],
   "providerAuthEnvVars": {

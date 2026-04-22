@@ -240,7 +240,6 @@ Full documentation in `config.example.yaml`. Key sections:
 - `ingestion` — size gate, OCR/STT feature flags
 - `memory` — hot/warm/cold tier config
 - `plugins` — plugin directories and settings
-- `skills` — skill directories and permissions
 
 ---
 

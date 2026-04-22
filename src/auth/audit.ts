@@ -14,8 +14,29 @@ export interface AuditEntry {
   timestamp: string;
   actor: string;
   action: string;
-  old_value?: string;
-  new_value?: string;
+  /** Any JSON-serialisable value. Serialised via JSON.stringify on write. */
+  old_value?: unknown;
+  /** Any JSON-serialisable value. Serialised via JSON.stringify on write. */
+  new_value?: unknown;
+}
+
+/**
+ * Serialise an audit field for log output. Strings are wrapped in quotes,
+ * objects/arrays stringified, everything else passed through JSON.stringify.
+ * Also strips newlines so one entry always occupies exactly one line —
+ * preserving the HMAC chain's line-oriented verification.
+ */
+function encodeAuditValue(v: unknown): string {
+  // JSON.stringify handles strings, numbers, booleans, null, arrays, objects.
+  // undefined → undefined (caller must guard); Date → ISO string; BigInt → throws.
+  let encoded: string;
+  try {
+    encoded = JSON.stringify(v);
+  } catch {
+    encoded = JSON.stringify(String(v));
+  }
+  // Defensive: strip any literal newlines so a single entry is one line.
+  return encoded.replace(/[\r\n]/g, ' ');
 }
 
 /** HMAC-SHA-256 of `data` using `key` — returns lowercase hex */
@@ -144,8 +165,8 @@ export class AuditLog {
       `[${full.timestamp}]`,
       `actor=${full.actor}`,
       `action=${full.action}`,
-      full.old_value !== undefined ? `old=${full.old_value}` : null,
-      full.new_value !== undefined ? `new=${full.new_value}` : null,
+      full.old_value !== undefined ? `old=${encodeAuditValue(full.old_value)}` : null,
+      full.new_value !== undefined ? `new=${encodeAuditValue(full.new_value)}` : null,
       `prev_hash=${prevHash}`,
     ]
       .filter(Boolean)

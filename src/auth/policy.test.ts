@@ -129,4 +129,66 @@ default:
     const verdict = engine.evaluate(makeCtx({ user_role: 'guest' }));
     expect(verdict.allowed).toBe(false);
   });
+
+  // ── Privileged-role bypass behaviour ──────────────────────────────────────
+  //
+  // Default (privilegedBypassBudgets: false) — owners/admins still hit any
+  // matching cost_ceiling_usd rule, so a compromised owner token cannot drain
+  // the budget. Legacy behaviour is opt-in via the config flag.
+
+  it('privileged roles still obey cost_ceiling_usd by default (bypass OFF)', () => {
+    writeFileSync(policyPath, `
+rules:
+  - roles: [owner, admin]
+    cost_ceiling_usd: 5.00
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath); // options.privilegedBypassBudgets defaults to false
+
+    const ownerVerdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(ownerVerdict.allowed).toBe(true);
+    expect(ownerVerdict.cost_ceiling_usd).toBe(5.0);
+
+    const adminVerdict = engine.evaluate(makeCtx({ user_role: 'admin' }));
+    expect(adminVerdict.allowed).toBe(true);
+    expect(adminVerdict.cost_ceiling_usd).toBe(5.0);
+  });
+
+  it('privileged roles bypass ALL rules when privilegedBypassBudgets is true', () => {
+    writeFileSync(policyPath, `
+rules:
+  - roles: [owner, admin]
+    cost_ceiling_usd: 5.00
+  - roles: [owner]
+    allowed: false
+    denied_reason: "Blocked"
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath, { privilegedBypassBudgets: true });
+
+    const ownerVerdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(ownerVerdict.allowed).toBe(true);
+    // Gets the permissive DEFAULT cost ceiling, not the rule's 5.00
+    expect(ownerVerdict.cost_ceiling_usd).toBe(2.0);
+    expect(ownerVerdict.denied_reason).toBeUndefined();
+  });
+
+  it('privileged roles are not blocked by non-cost deny rules (bypass OFF)', () => {
+    // The privileged-but-budgeted branch only honors cost_ceiling_usd from
+    // matching rules. Other fields (allowed:false, denied_reason, allowlists)
+    // are intentionally ignored — privileged roles keep their base permissive
+    // verdict, so an owner can't be locked out by a misconfigured rule.
+    writeFileSync(policyPath, `
+rules:
+  - roles: [owner]
+    allowed: false
+    denied_reason: "Maintenance window"
+`, 'utf-8');
+
+    engine = new PolicyEngine(policyPath);
+
+    const verdict = engine.evaluate(makeCtx({ user_role: 'owner' }));
+    expect(verdict.allowed).toBe(true);
+    expect(verdict.denied_reason).toBeUndefined();
+  });
 });
