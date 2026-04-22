@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+traces/
+.budget-state.json
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Local runtime state (credential vault, session DBs — never commit)
+.alduin/
+.helios/
+
+# Test artifacts produced by config-loader tests
+.tmp-*
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Local config (use config.example.yaml as template)
+config.yaml
+
+# AI tooling config
+.cursorrules
+.cursor/

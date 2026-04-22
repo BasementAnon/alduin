@@ -1,0 +1,172 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Alduin Orchestrator — Complete Configuration Template
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Usage:
+#   cp config.example.yaml config.yaml   # then edit config.yaml
+#   alduin init                          # interactive wizard (recommended)
+#
+# Model versions are pinned. Upgrades are explicit — never auto:
+#   alduin models sync      — discover new provider versions from their APIs
+#   alduin models diff      — compare current pins vs. latest catalog
+#   alduin models upgrade   — propose + smoke-test + apply new pins
+#
+# Secrets live in .env (never in this file):
+#   ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY
+#   TELEGRAM_BOT_TOKEN, ALDUIN_WEBHOOK_SECRET
+#   ALDUIN_VAULT_SECRET (optional; falls back to OS keychain)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Which catalog revision these pins were validated against.
+# Run `alduin models diff` to check for drift.
+catalog_version: "2026-04-14"
+
+# ── Orchestrator ──────────────────────────────────────────────────────────────
+# The orchestrator PLANS but never executes. It sees ~9K tokens of context:
+# system prompt + conversation summary + last 3 turns + task state + skill manifest.
+orchestrator:
+  model: anthropic/claude-sonnet-4-6
+  max_planning_tokens: 4000       # tokens reserved for the plan JSON
+  context_strategy: sliding_window
+  context_window: 16000           # total context budget for the orchestrator call
+
+# ── Executors ─────────────────────────────────────────────────────────────────
+# Executors DO work. Each receives a task instruction + relevant data (no history).
+# The context field controls what additional info is injected:
+#   task_only            — just the instruction
+#   task_plus_style_guide — instruction + style guidelines (for content)
+#   message_only         — raw user message only (for classifier)
+executors:
+  code:
+    model: anthropic/claude-sonnet-4-6
+    max_tokens: 8000
+    tools: [file_read, file_write, bash, git]
+    context: task_only
+
+  research:
+    model: openai/gpt-4.1
+    max_tokens: 4000
+    tools: [web_search, web_fetch]
+    context: task_only
+
+  content:
+    model: anthropic/claude-sonnet-4-6
+    max_tokens: 6000
+    tools: []
+    context: task_plus_style_guide
+
+  quick:
+    # Cheap + fast for simple single-domain tasks (calendar, email lookups, etc.)
+    model: deepseek/deepseek-v3.2
+    max_tokens: 2000
+    tools: [calendar, email_read]
+    context: task_only
+
+  classifier:
+    # Cheap/local model for pre-classification — sees user message only, no history.
+    model: ollama/qwen2.5-7b
+    max_tokens: 200
+    tools: []
+    context: message_only
+
+# ── Providers ─────────────────────────────────────────────────────────────────
+# api_key_env: name of the environment variable holding the API key
+# base_url: used for Ollama (local) and OpenAI-compatible endpoints
+# api_type: set to 'openai-compatible' for DeepSeek, Together AI, Fireworks, etc.
+providers:
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY
+
+  openai:
+    api_key_env: OPENAI_API_KEY
+
+  ollama:
+    base_url: http://localhost:11434   # local Ollama instance
+
+  deepseek:
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    api_type: openai-compatible
+
+# ── Routing ───────────────────────────────────────────────────────────────────
+# pre_classifier: true  — cheap model classifies before orchestrator sees anything.
+#   Simple tasks (code, research, ops) route straight to an executor.
+#   Complex / multi-step tasks go to the full orchestrator loop.
+#   Cost: classify($0.0001) + executor($0.001) vs. full orchestration ($0.05)
+routing:
+  pre_classifier: true
+  classifier_model: classifier       # executor name (above) to use as classifier
+  complexity_threshold: 0.6          # 0–1; below this, even simple tasks go to orchestrator
+
+# ── Budgets ───────────────────────────────────────────────────────────────────
+# Three-scope enforcement: global → per-model → per-user/group (ScopedBudgetTracker).
+# Warning fires at warning_threshold × daily_limit. Hard stop at limit.
+budgets:
+  daily_limit_usd: 10.00
+  per_task_limit_usd: 2.00
+  warning_threshold: 0.80              # warn at 80% of daily limit
+
+  # Optional per-model daily caps (in addition to the global limit)
+  per_model_limits:
+    anthropic/claude-opus-4-6: 5.00
+    anthropic/claude-sonnet-4-6: 3.00
+    openai/gpt-4.1: 2.00
+
+# ── Fallback chains ───────────────────────────────────────────────────────────
+# When a model fails (rate-limit, circuit open, timeout), Alduin tries the next.
+# The actual model used is logged in the trace for accurate cost accounting.
+fallbacks:
+  anthropic/claude-opus-4-6:
+    - anthropic/claude-sonnet-4-6
+    - openai/gpt-4.1
+  anthropic/claude-sonnet-4-6:
+    - openai/gpt-4.1
+    - deepseek/deepseek-v3.2
+
+# ── Memory ────────────────────────────────────────────────────────────────────
+# Tiered memory keeps the orchestrator context lean (~9K tokens total):
+#   Hot  — last N turns, always in context
+#   Warm — rolling LLM-compressed summary, always in context (~500 tokens)
+#   Cold — vector store, loaded ONLY when user references past context
+memory:
+  hot_turns: 3                        # keep last 3 turns in-context
+  warm_max_tokens: 500                 # max tokens for the rolling summary
+  cold_enabled: true
+  cold_embedding_model: ollama/nomic-embed-text
+  cold_similarity_threshold: 0.7       # cosine similarity threshold for retrieval
+
+# ── Channels ─────────────────────────────────────────────────────────────────
+# MVP: Telegram (webhook + long-poll). Slack/Discord are deferred.
+channels:
+  telegram:
+    enabled: true
+    # mode: longpoll   — for local dev (no public URL needed)
+    # mode: webhook    — for production (requires public HTTPS URL)
+    mode: longpoll
+    token_env: TELEGRAM_BOT_TOKEN
+    # webhook_url: https://bot.example.com/webhooks/telegram   # required in webhook mode
+    # webhook_secret_env: ALDUIN_WEBHOOK_SECRET                # optional but recommended
+
+# ── Tenants ───────────────────────────────────────────────────────────────────
+# The default tenant ID used for new sessions. Multi-tenant deployments can
+# route different bots to different tenant IDs.
+tenants:
+  default_tenant_id: default
+
+# ── Ingestion ─────────────────────────────────────────────────────────────────
+# Pipeline: download → size gate → MIME detect → blob store → enrich
+# Enrichers are optional; graceful fallback when not installed.
+ingestion:
+  max_bytes: 26214400          # 25 MB size gate
+  ocr_enabled: false           # requires tesseract.js (optional peer dep)
+  stt_enabled: false           # requires OpenAI Whisper (uses OPENAI_API_KEY)
+  attachment_timeout_ms: 30000 # per-attachment timeout before falling back to stub
+  ttl_hours: 24                # blob expiry
+
+# ── Connectors (optional) ─────────────────────────────────────────────────────
+# Credentials for connectors are stored in the vault (CredentialVault + OS keychain).
+# Run `alduin init` or `/connect google-calendar` in Telegram to link.
+# connectors:
+#   google-calendar:
+#     client_id_vault_key: tenants/default/connectors/google-calendar/client_id
+#     client_secret_vault_key: tenants/default/connectors/google-calendar/client_secret
