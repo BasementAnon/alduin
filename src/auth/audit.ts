@@ -1,5 +1,6 @@
 import {
   appendFileSync,
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -93,6 +94,14 @@ function verifySegment(
     const line = lines[i]!;
     const expectedPrevHash = hmac256(hmacKey, prevLineHash);
 
+    // A well-formed entry has exactly one prev_hash= token. More than one
+    // means a crafted actor/action field smuggled the marker through — even
+    // if the trailing one matches, the chain is ambiguous and we reject.
+    const prevHashCount = (line.match(/prev_hash=/g) ?? []).length;
+    if (prevHashCount !== 1) {
+      return { ok: false, breakPoint: i + 1, line };
+    }
+
     const match = line.match(/ prev_hash=([0-9a-f]{64})$/);
     if (!match) {
       return { ok: false, breakPoint: i + 1, line };
@@ -140,7 +149,11 @@ export class AuditLog {
 
     const dir = dirname(filePath);
     if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+      mkdirSync(dir, { recursive: true, mode: 0o700 });
+    } else {
+      // Tighten permissions on an existing directory in case it was created
+      // earlier without a mode. Best-effort — ignore on Windows.
+      try { chmodSync(dir, 0o700); } catch { /* best-effort */ }
     }
 
     this.lastLineHash = this.readLastLineHash();
@@ -161,10 +174,13 @@ export class AuditLog {
 
     const prevHash = hmac256(this.hmacKey, this.lastLineHash);
 
+    // Route actor/action through the same encoder as old/new_value. Otherwise
+    // a crafted actor field could embed its own `prev_hash=<64 hex>` sequence
+    // and confuse the verifier's line-suffix match.
     const line = [
       `[${full.timestamp}]`,
-      `actor=${full.actor}`,
-      `action=${full.action}`,
+      `actor=${encodeAuditValue(full.actor)}`,
+      `action=${encodeAuditValue(full.action)}`,
       full.old_value !== undefined ? `old=${encodeAuditValue(full.old_value)}` : null,
       full.new_value !== undefined ? `new=${encodeAuditValue(full.new_value)}` : null,
       `prev_hash=${prevHash}`,
@@ -172,7 +188,10 @@ export class AuditLog {
       .filter(Boolean)
       .join(' ');
 
-    appendFileSync(this.filePath, line + '\n', 'utf-8');
+    appendFileSync(this.filePath, line + '\n', { encoding: 'utf-8', mode: 0o600 });
+    // `mode` only applies when appendFileSync creates the file — tighten the
+    // existing file explicitly so perms are correct on every call.
+    try { chmodSync(this.filePath, 0o600); } catch { /* best-effort */ }
     this.lastLineHash = line;
     this.activeLineCount++;
   }
@@ -235,13 +254,18 @@ export class AuditLog {
 
     // Write checkpoint as the genesis of the new segment.
     // The checkpoint's prev_hash is HMAC(lastLineHash) — same formula as a
-    // regular entry — so the chain is unbroken across segments.
+    // regular entry — so the chain is unbroken across segments. Use the
+    // encoder for each field so the serialisation is symmetric with log().
     const checkpointPrevHash = hmac256(this.hmacKey, this.lastLineHash);
     const checkpointLine =
-      `[${new Date().toISOString()}] actor=system action=log.rotation` +
-      ` new=segment_${idx} prev_hash=${checkpointPrevHash}`;
+      `[${new Date().toISOString()}] ` +
+      `actor=${encodeAuditValue('system')} ` +
+      `action=${encodeAuditValue('log.rotation')} ` +
+      `new=${encodeAuditValue(`segment_${idx}`)} ` +
+      `prev_hash=${checkpointPrevHash}`;
 
-    writeFileSync(this.filePath, checkpointLine + '\n', 'utf-8');
+    writeFileSync(this.filePath, checkpointLine + '\n', { encoding: 'utf-8', mode: 0o600 });
+    try { chmodSync(this.filePath, 0o600); } catch { /* best-effort */ }
     this.lastLineHash = checkpointLine;
     this.activeLineCount = 1;
   }

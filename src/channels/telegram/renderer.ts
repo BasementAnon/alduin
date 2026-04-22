@@ -49,18 +49,30 @@ export function markdownToTelegramHtml(md: string): string {
     return `<code>${escapeTelegramHtml(code)}</code>`;
   });
 
-  // Bold (**text** or __text__)
-  html = html.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
-  html = html.replace(/__(.+?)__/g, '<b>$1</b>');
+  // Bold (**text** or __text__) — escape captured content so a crafted
+  // markdown input can't smuggle HTML tags through the replacement string.
+  html = html.replace(/\*\*(.+?)\*\*/g, (_match, inner: string) => {
+    return `<b>${escapeTelegramHtml(inner)}</b>`;
+  });
+  html = html.replace(/__(.+?)__/g, (_match, inner: string) => {
+    return `<b>${escapeTelegramHtml(inner)}</b>`;
+  });
 
   // Italic (*text* or _text_ — but not inside already-transformed bold/code)
-  html = html.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, '<i>$1</i>');
-  html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, '<i>$1</i>');
+  html = html.replace(/(?<!\w)\*([^*]+?)\*(?!\w)/g, (_match, inner: string) => {
+    return `<i>${escapeTelegramHtml(inner)}</i>`;
+  });
+  html = html.replace(/(?<!\w)_([^_]+?)_(?!\w)/g, (_match, inner: string) => {
+    return `<i>${escapeTelegramHtml(inner)}</i>`;
+  });
 
-  // Links [text](url)
+  // Links [text](url) — escape both label and href so that neither can
+  // inject additional HTML attributes or break out of the anchor tag.
   html = html.replace(
     /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
-    '<a href="$2">$1</a>'
+    (_match, label: string, url: string) => {
+      return `<a href="${escapeTelegramHtml(url)}">${escapeTelegramHtml(label)}</a>`;
+    }
   );
 
   return html;

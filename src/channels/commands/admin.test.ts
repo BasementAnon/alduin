@@ -262,6 +262,31 @@ describe('admin commands', () => {
     expect(result.reply).toContain('Usage');
   });
 
+  // ── H-17: Number.isFinite guard against Infinity/NaN ──────────────────
+  it('/alduin budget set daily rejects Infinity (H-17)', () => {
+    // Before the fix this passed isNaN but slipped through the <= 0 check,
+    // effectively disabling the daily budget.
+    const result = handleAdminCommand('/alduin budget set daily Infinity', makeCtx(), deps);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('Usage');
+  });
+
+  it('/alduin budget set per_model rejects -Infinity (H-17)', () => {
+    const result = handleAdminCommand(
+      '/alduin budget set per_model openai/gpt-4.1 -Infinity',
+      makeCtx(),
+      deps
+    );
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('Usage');
+  });
+
+  it('/alduin budget set warn rejects Infinity (H-17)', () => {
+    const result = handleAdminCommand('/alduin budget set warn Infinity', makeCtx(), deps);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('Usage');
+  });
+
   it('/alduin budget set per_model sets per-model limit and audits', () => {
     const result = handleAdminCommand('/alduin budget set per_model openai/gpt-4.1 3.50', makeCtx(), deps);
     expect(result.handled).toBe(true);

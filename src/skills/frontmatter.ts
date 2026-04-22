@@ -112,15 +112,14 @@ export function extractFrontmatter(
   content: string
 ): { yaml: string; body: string } | null {
   const trimmed = content.trimStart();
-  if (!trimmed.startsWith('---')) return null;
 
-  // Find the closing --- (skip the opening one)
-  const end = trimmed.indexOf('---', 3);
-  if (end === -1) return null;
-
-  const yaml = trimmed.slice(3, end).trim();
-  const body = trimmed.slice(end + 3).replace(/^\r?\n/, '');
-  return { yaml, body };
+  // Match `---\n<yaml>\n---` as delimited fences on their own lines.
+  // The previous indexOf-based implementation would happily split on a
+  // `---` that appeared inline in the YAML (e.g. inside a quoted string),
+  // producing truncated frontmatter and spilling the rest into the body.
+  const match = trimmed.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/);
+  if (!match) return null;
+  return { yaml: match[1]!, body: trimmed.slice(match[0].length) };
 }
 
 /**

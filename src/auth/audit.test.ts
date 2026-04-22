@@ -43,9 +43,10 @@ describe('AuditLog — HMAC chain', () => {
     log.log({ actor: 'alice', action: 'budget.set', new_value: '$10' });
     log.log({ actor: 'bob', action: 'policy.allow', new_value: 'write' });
 
-    // Tamper with the first line — change the actor name
+    // Tamper with the first line — change the actor name. Actor/action fields
+    // are JSON-encoded (H-7), so the on-disk representation is `actor="alice"`.
     const content = readFileSync(logPath, 'utf-8');
-    const tampered = content.replace('actor=alice', 'actor=eve');
+    const tampered = content.replace('actor="alice"', 'actor="eve"');
     writeFileSync(logPath, tampered, 'utf-8');
 
     const result = log.verify();
@@ -177,9 +178,11 @@ describe('AuditLog — rotation', () => {
     // Archive should now exist
     expect(existsSync(join(tmpDir, 'audit.log.1'))).toBe(true);
 
-    // Active file should exist and contain the checkpoint + the new entry
+    // Active file should exist and contain the checkpoint + the new entry.
+    // Checkpoint action is JSON-encoded by encodeAuditValue (H-7), so it
+    // serialises as `action="log.rotation"`.
     const active = readFileSync(logPath, 'utf-8');
-    expect(active).toContain('action=log.rotation');
+    expect(active).toContain('action="log.rotation"');
     expect(active).toContain('trigger_rotation');
   });
 
@@ -245,10 +248,11 @@ describe('AuditLog — rotation', () => {
     // Both archive and active should verify cleanly
     expect(log.verifyAll()).toEqual({ ok: true });
 
-    // Tamper the archived file — verifyAll should fail
+    // Tamper the archived file — verifyAll should fail. Actor values are
+    // JSON-encoded (H-7) so the on-disk form is `actor="a"`.
     const archivePath = join(tmpDir, 'audit.log.1');
     const archiveContent = readFileSync(archivePath, 'utf-8');
-    writeFileSync(archivePath, archiveContent.replace('actor=a', 'actor=evil'), 'utf-8');
+    writeFileSync(archivePath, archiveContent.replace('actor="a"', 'actor="evil"'), 'utf-8');
 
     const tamperedResult = log.verifyAll();
     expect(tamperedResult.ok).toBe(false);

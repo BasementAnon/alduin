@@ -21,7 +21,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve, isAbsolute } from 'node:path';
+import { join, resolve, isAbsolute, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { alduinPluginManifestSchema } from '@alduin/plugin-sdk';
@@ -223,13 +223,14 @@ async function loadSinglePlugin(
   // exist but a sibling .ts source does, use it instead. This lets the same
   // manifest work across dev (source) and prod (compiled) without a build
   // step being a hard prerequisite for tests.
-  const entryPath = resolveEntryPath(resolve(dir, manifest.entry));
+  const resolvedPluginDir = resolve(dir);
+  const entryPath = resolveEntryPath(resolve(dir, manifest.entry), resolvedPluginDir);
   if (!entryPath) {
     return {
       ok: false,
       error: {
         pluginId: manifest.id,
-        message: `Entry file not found: ${resolve(dir, manifest.entry)} (declared as "${manifest.entry}" in ${manifestPath}). Build the plugin first.`,
+        message: `Entry file not found or escapes plugin directory: ${resolve(dir, manifest.entry)} (declared as "${manifest.entry}" in ${manifestPath}). Build the plugin first, and ensure the entry path stays inside the plugin directory.`,
         code: 'entry_not_found',
       },
     };
@@ -270,16 +271,36 @@ async function loadSinglePlugin(
  *   3. If it's a `.ts` path that doesn't exist, try the sibling `.js`.
  *   4. If neither exists, return null.
  *
- * Returns the absolute path that actually exists, or null.
+ * Containment: every candidate is normalised via `resolve()` and then checked
+ * to ensure it starts with `pluginDir + sep`. A manifest that declares
+ * `entry: "../../etc/passwd"` or similar would otherwise cause the loader to
+ * dynamic-import a file anywhere on disk.
+ *
+ * Returns the absolute path that actually exists and is contained, or null.
  */
-function resolveEntryPath(declaredPath: string): string | null {
-  if (existsSync(declaredPath)) return declaredPath;
+function resolveEntryPath(declaredPath: string, pluginDir: string): string | null {
+  const contained = (p: string): string | null => {
+    const normalised = resolve(p);
+    // Exact directory match is not a valid entry file.
+    if (normalised === pluginDir) return null;
+    if (!normalised.startsWith(pluginDir + sep)) return null;
+    return existsSync(normalised) ? normalised : null;
+  };
+
+  const direct = contained(declaredPath);
+  if (direct) return direct;
 
   const tsVariant = declaredPath.replace(/\.js$/, '.ts');
-  if (tsVariant !== declaredPath && existsSync(tsVariant)) return tsVariant;
+  if (tsVariant !== declaredPath) {
+    const ts = contained(tsVariant);
+    if (ts) return ts;
+  }
 
   const jsVariant = declaredPath.replace(/\.ts$/, '.js');
-  if (jsVariant !== declaredPath && existsSync(jsVariant)) return jsVariant;
+  if (jsVariant !== declaredPath) {
+    const js = contained(jsVariant);
+    if (js) return js;
+  }
 
   return null;
 }

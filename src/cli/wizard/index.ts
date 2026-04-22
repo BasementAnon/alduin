@@ -36,11 +36,15 @@ import { buildChannelConfig, runPickChannel } from './steps/pick-channel.js';
 import { runPasteTokens, writeTokensToVault } from './steps/paste-tokens.js';
 import { buildBudgetConfig, runBudget } from './steps/budget.js';
 import { buildModelsConfig, runPickModels } from './steps/pick-models.js';
+import { runOwnerBootstrap } from './steps/owner.js';
 import { formatSelfTestReport, runSelfTest } from './steps/self-test.js';
 import type { ChannelAnswers, BudgetAnswers, ModelAnswers, TokenAnswers, WizardCancelledError, WizardState } from './types.js';
+import { bootstrapOwner, formatBootstrapError } from '../../auth/bootstrap.js';
+import { openSqlite } from '../../db/open.js';
 
 const CONFIG_PATH = './config.yaml';
 const VAULT_PATH = '.alduin/vault.db';
+const AUTH_DB_PATH = '.alduin-sessions.db';
 const CATALOG_VERSION = '2026-04-14';
 
 // ── Config assembly ───────────────────────────────────────────────────────────
@@ -144,6 +148,37 @@ async function commit(
   if (state.channel.channel === 'telegram' && !existsSync('.env')) {
     writeEnvVar('TELEGRAM_BOT_TOKEN', state.tokens.botToken ?? '');
   }
+
+  // 4. Seed the first owner role (if the user supplied one).
+  //    Uses the same guarded bootstrap helper as `alduin admin bootstrap`, so
+  //    re-running `alduin init` cannot silently swap the owner on an existing
+  //    tenant — the user must use the admin role commands to transfer.
+  if (state.owner?.userId) {
+    const authDb = openSqlite(AUTH_DB_PATH);
+    try {
+      const tenantId =
+        state.owner.tenantId || config.tenants?.default_tenant_id || 'default';
+      const result = bootstrapOwner(authDb, {
+        tenantId,
+        userId: state.owner.userId,
+      });
+      if (result.ok) {
+        log.success(
+          `Owner seeded: tenant="${result.value.tenantId}" user_id="${result.value.userId}".`
+        );
+      } else if (result.error.kind === 'owner_exists') {
+        log.warn(
+          `Owner already exists for tenant "${result.error.tenantId}" ` +
+            `(user_id="${result.error.existingUserId}"). Skipping — use admin role ` +
+            'commands to transfer ownership.'
+        );
+      } else {
+        log.warn(formatBootstrapError(result.error));
+      }
+    } finally {
+      authDb.close();
+    }
+  }
 }
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
@@ -192,6 +227,9 @@ export async function runInitWizard(): Promise<void> {
     state.tokens = await runPasteTokens(state.channel);
     state.models = await runPickModels(catalog);
     state.budget = await runBudget();
+    // Owner bootstrap is optional — users who skip here can run
+    // `alduin admin bootstrap --tenant <t> --user-id <u>` later.
+    state.owner = await runOwnerBootstrap(state.channel);
   } catch (e) {
     // WizardCancelledError — user pressed Ctrl-C
     const name = (e as WizardCancelledError).name;

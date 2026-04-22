@@ -50,6 +50,7 @@ import type { ChannelDownloadConfig } from './ingestion/pipeline.js';
 
 // ── Runtime plane ─────────────────────────────────────────────────────────────
 import { ProviderRegistry, scrubSecretEnv } from './providers/registry.js';
+import { PluginRegistry } from './plugins/registry.js';
 import { AnthropicProvider } from './providers/anthropic.js';
 import { OpenAIProvider } from './providers/openai.js';
 import { OllamaProvider } from './providers/ollama.js';
@@ -212,16 +213,33 @@ export async function createRuntime(
   const sessionResolver = new SessionResolver(sessionStore, defaultTenant);
 
   // ── Runtime plane ─────────────────────────────────────────────────────────
-  // Capture the OpenAI key for the ingestion pipeline BEFORE initProviders
-  // calls scrubProviderEnv(), which removes it from process.env.
-  // Use config.providers['openai']?.api_key_env to determine which env var to read.
+  // Capture all secrets consumed after initProviders() BEFORE it calls
+  // scrubSecretEnv(), which removes them from process.env.
+  // Any env var referenced after initProviders must be captured here first.
   const openaiIngestionKey = config.providers['openai']
     ? (process.env[config.providers['openai'].api_key_env ?? 'OPENAI_API_KEY'] ?? undefined)
+    : undefined;
+
+  // Channel secrets: the Telegram adapter + ingestion pipeline both need the
+  // bot token and webhook secret post-scrub. Capture them now.
+  const telegramTokenEnv = config.channels?.telegram?.token_env;
+  const telegramWebhookSecretEnv = config.channels?.telegram?.webhook_secret_env;
+  const telegramBotToken = telegramTokenEnv
+    ? (process.env[telegramTokenEnv] ?? undefined)
+    : undefined;
+  const telegramWebhookSecret = telegramWebhookSecretEnv
+    ? (process.env[telegramWebhookSecretEnv] ?? undefined)
     : undefined;
 
   const registry = new ProviderRegistry();
   const loadedProviders = initProviders(config, registry, catalog);
   console.log(`[Alduin] Providers loaded: ${loadedProviders.join(', ') || 'none'}`);
+
+  // Plugin registry — empty until loadPlugins() wires are added later. Passing
+  // a real (empty) instance lets /alduin plugins list return "No plugins"
+  // rather than "Plugin registry not available".
+  const pluginRegistry = new PluginRegistry();
+  registry.setPluginRegistry(pluginRegistry);
 
   const tokenCounter = new TokenCounter(catalog);
 
@@ -361,6 +379,12 @@ export async function createRuntime(
         traceLogger,
         startedAt,
         activeSessionCount: () => sessionMemory.size,
+        // Optional deps — wire through so /alduin forget, /alduin recursion,
+        // /alduin models list, and /alduin plugins list all work.
+        memoryManager: getOrCreateMemory(session.session_id),
+        sessionStore,
+        ...(catalog ? { catalog } : {}),
+        pluginRegistry,
       });
       if (result.handled && result.reply) {
         await adapter.send({ text: result.reply, parse_mode: 'plain' } as PresentationPayload, target);
@@ -463,9 +487,12 @@ export async function createRuntime(
 
   function buildRawHandler(adapter: ChannelAdapter) {
     const tgConfig = config.channels?.telegram;
+    // Use the Telegram token captured before initProviders scrubbed the env.
+    // Re-reading process.env here would return '' because scrubSecretEnv has
+    // already deleted the key.
     const channelDownloadConfig: ChannelDownloadConfig = {
       telegram: tgConfig?.token_env
-        ? { bot_token: process.env[tgConfig.token_env] ?? '' }
+        ? { bot_token: telegramBotToken ?? '' }
         : undefined,
     };
 
@@ -509,12 +536,13 @@ export async function createRuntime(
   let tgAdapter: TelegramAdapter | null = null;
 
   if (tgConfig?.enabled) {
-    const token = process.env[tgConfig.token_env] ?? '';
+    // Use the Telegram token captured before initProviders scrubbed the env.
+    const token = telegramBotToken ?? '';
     if (!token) {
       console.warn(`[Alduin] ${tgConfig.token_env} not set — Telegram adapter disabled`);
     } else {
       const webhookSecret = tgConfig.webhook_secret_env
-        ? (process.env[tgConfig.webhook_secret_env] ?? undefined)
+        ? telegramWebhookSecret
         : undefined;
 
       tgAdapter = new TelegramAdapter({
@@ -530,7 +558,8 @@ export async function createRuntime(
   }
 
   // Note: All secrets (including Telegram tokens) were already scrubbed
-  // in initProviders() → scrubSecretEnv(config).
+  // in initProviders() → scrubSecretEnv(config). The values used above were
+  // captured into local variables BEFORE initProviders ran.
 
   // ── Return runtime handle ─────────────────────────────────────────────────
 

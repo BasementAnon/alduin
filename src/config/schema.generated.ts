@@ -2,7 +2,7 @@
 // Run `npm run config:generate` to regenerate after modifying schema source files.
 //
 // Input SHA: 02e61d4e942111ba
-// Generated at: 2026-04-22T03:06:23.095Z
+// Generated at: 2026-04-22T03:52:07.418Z
 
 /* eslint-disable */
 // prettier-ignore

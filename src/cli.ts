@@ -162,6 +162,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Handle `admin` subcommand (e.g. `alduin admin bootstrap --tenant ... --user-id ...`)
+  if (positionalArgs[0] === 'admin') {
+    const { handleAdminCommand } = await import('./cli/admin.js');
+    await handleAdminCommand(positionalArgs.slice(1), configPath);
+    return;
+  }
+
   // Handle `models` subcommand before starting REPL
   if (positionalArgs[0] === 'models' && positionalArgs[1]) {
     const { handleModelsCommand } = await import('./cli/models.js');

@@ -176,7 +176,7 @@ function handleBudget(
     // /alduin budget set daily <usd>
     if (subAction === 'daily') {
       const usd = parseFloat(args[2] ?? '');
-      if (isNaN(usd) || usd <= 0) {
+      if (!Number.isFinite(usd) || usd <= 0) {
         return { handled: true, reply: 'Usage: /alduin budget set daily <usd>' };
       }
       deps.budgetTracker.setDailyLimit(usd);
@@ -191,7 +191,7 @@ function handleBudget(
     // /alduin budget set warn <threshold 0-1>
     if (subAction === 'warn') {
       const threshold = parseFloat(args[2] ?? '');
-      if (isNaN(threshold) || threshold < 0 || threshold > 1) {
+      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
         return { handled: true, reply: 'Usage: /alduin budget set warn <0.0-1.0>' };
       }
       deps.budgetTracker.setWarningThreshold(threshold);
@@ -207,7 +207,7 @@ function handleBudget(
     if (subAction === 'per_model') {
       const model = args[2];
       const usd = parseFloat(args[3] ?? '');
-      if (!model || isNaN(usd) || usd <= 0) {
+      if (!model || !Number.isFinite(usd) || usd <= 0) {
         return { handled: true, reply: 'Usage: /alduin budget set per_model <model> <usd>' };
       }
       deps.budgetTracker.setPerModelLimit(model, usd);
@@ -226,7 +226,7 @@ function handleBudget(
       return { handled: true, reply: 'Usage: /alduin budget set [daily|warn|per_model <model>] <value>' };
     }
     const usd = parseFloat(usdStr);
-    if (isNaN(usd) || usd <= 0) {
+    if (!Number.isFinite(usd) || usd <= 0) {
       return { handled: true, reply: 'Budget must be a positive number.' };
     }
 

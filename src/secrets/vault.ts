@@ -6,6 +6,8 @@
 // ─────────────────────────────────────────────────────────────
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import { openSqlite } from '../db/open.js';
 
@@ -13,6 +15,20 @@ const ALGORITHM = 'aes-256-gcm';
 const KEY_LEN = 32;
 const IV_LEN = 12;
 const SALT_LEN = 16;
+
+/**
+ * Explicit scrypt work factors. N=2^17 raises the memory/CPU cost well above
+ * Node's defaults (N=2^14), and `maxmem` must be set in tandem or the call
+ * errors with "memory limit exceeded". Applied to every scryptSync invocation
+ * in this file so the current key and any legacy-salt re-derivation both get
+ * the same hardening.
+ */
+const SCRYPT_OPTS: import('node:crypto').ScryptOptions = {
+  N: 1 << 17,
+  r: 8,
+  p: 1,
+  maxmem: 256 * 1024 * 1024,
+};
 
 const LEGACY_SALT = 'alduin-vault-salt';
 
@@ -61,11 +77,31 @@ export class CredentialVault {
   private encKey: Buffer;
 
   constructor(dbPath: string, masterSecret: string) {
+    // Ensure the containing directory exists with owner-only permissions
+    // BEFORE we open the database — openSqlite will create the file and we
+    // must not briefly expose the parent directory world-readable.
+    if (dbPath !== ':memory:') {
+      const dir = dirname(dbPath);
+      if (dir && dir !== '.' && !existsSync(dir)) {
+        mkdirSync(dir, { recursive: true, mode: 0o700 });
+      }
+    }
+
     this.db = openSqlite(dbPath);
     this.db.exec(SCHEMA);
 
+    // Tighten permissions on the on-disk vault file so only the process
+    // owner can read the encrypted credential rows.
+    if (dbPath !== ':memory:') {
+      try {
+        chmodSync(dbPath, 0o600);
+      } catch {
+        // best-effort on Windows / filesystems without POSIX mode bits
+      }
+    }
+
     const salt = this.resolveOrMigrateSalt(masterSecret);
-    this.encKey = scryptSync(masterSecret, salt, KEY_LEN);
+    this.encKey = scryptSync(masterSecret, salt, KEY_LEN, SCRYPT_OPTS);
   }
 
   /**
@@ -191,10 +227,17 @@ export class CredentialVault {
   /**
    * Decrypt all rows under the legacy hardcoded salt, re-encrypt under the
    * new random salt, and write everything in a single transaction.
+   *
+   * Note on scrypt parameters: the legacy key derivation deliberately uses
+   * Node's default scrypt options (NO SCRYPT_OPTS). Rows written before C-4
+   * were encrypted with the defaults, so the migration must reproduce them
+   * byte-for-byte to decrypt. Only the *new* key (used to re-encrypt going
+   * forward) uses the hardened SCRYPT_OPTS. After the one-time migration,
+   * every subsequent vault open derives the active key via SCRYPT_OPTS.
    */
   private migrateLegacySalt(masterSecret: string, newSalt: Buffer): void {
     const legacyKey = scryptSync(masterSecret, LEGACY_SALT, KEY_LEN);
-    const newKey = scryptSync(masterSecret, newSalt, KEY_LEN);
+    const newKey = scryptSync(masterSecret, newSalt, KEY_LEN, SCRYPT_OPTS);
 
     interface CredRow {
       scope: string;

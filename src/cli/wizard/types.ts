@@ -40,12 +40,25 @@ export interface BudgetAnswers {
   perModelLimits?: Record<string, number>;
 }
 
+/** Owner bootstrap answers — seeds the first `owner` role for a tenant. */
+export interface OwnerAnswers {
+  /** Tenant to seed; defaults to the config's default_tenant_id. */
+  tenantId: string;
+  /**
+   * Channel user ID for the owner (e.g. Telegram numeric user ID as string).
+   * Undefined when the user chose to skip owner bootstrap in the wizard.
+   */
+  userId?: string;
+}
+
 /** Accumulated answers from all wizard steps — passed to the commit phase. */
 export interface WizardState {
   channel: ChannelAnswers;
   tokens: TokenAnswers;
   models: ModelAnswers;
   budget: BudgetAnswers;
+  /** Owner seeding is optional — may be skipped during init. */
+  owner?: OwnerAnswers;
 }
 
 // ── Self-test ─────────────────────────────────────────────────────────────────

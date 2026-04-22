@@ -142,6 +142,52 @@ describe('Plugin loader', () => {
     expect(result.errors[0].message).toContain('Build the plugin first');
   });
 
+  // ── Plugin entry containment (path-traversal guard) ────────────────────
+
+  it('refuses an entry path that escapes the plugin directory via ..', async () => {
+    const pluginDir = join(root, 'plugins', 'builtin', 'traversal');
+    // Write a file OUTSIDE the plugin directory — if the loader follows the
+    // declared entry it would pick this up. The guard must reject it.
+    writeFileSync(join(root, 'rogue.mjs'), 'export const provider = {};');
+
+    writeManifest(pluginDir, {
+      id: 'traversal',
+      version: '0.1.0',
+      kind: 'provider',
+      entry: '../../../rogue.mjs',
+      providers: ['traversal'],
+    });
+
+    const result = await loadPlugins({ projectRoot: root, currentSchemaSha: null });
+
+    expect(result.plugins).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].code).toBe('entry_not_found');
+    // The error message indicates the file was refused (not loaded).
+    expect(result.errors[0].pluginId).toBe('traversal');
+  });
+
+  it('refuses an absolute entry path that lands outside the plugin directory', async () => {
+    const pluginDir = join(root, 'plugins', 'builtin', 'absolute-escape');
+    // Write a target file somewhere else on disk under root, not inside the plugin dir.
+    const outsideTarget = join(root, 'outside.mjs');
+    writeFileSync(outsideTarget, 'export const provider = {};');
+
+    writeManifest(pluginDir, {
+      id: 'absolute-escape',
+      version: '0.1.0',
+      kind: 'provider',
+      entry: outsideTarget, // absolute path outside pluginDir
+      providers: ['absolute-escape'],
+    });
+
+    const result = await loadPlugins({ projectRoot: root, currentSchemaSha: null });
+
+    expect(result.plugins).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].code).toBe('entry_not_found');
+  });
+
   // ── Error: bad schema (invalid manifest) ───────────────────────────────
 
   it('reports error when manifest has invalid schema', async () => {

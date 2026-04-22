@@ -1,6 +1,28 @@
 import type { ZodTypeAny } from 'zod';
 import { alduinConfigSchema } from './schema/index.js';
 
+// ── Prototype-pollution guard ────────────────────────────────────────────────
+
+/**
+ * Path segments that would mutate Object.prototype or constructor chains and
+ * are rejected outright by both `validatePath` and `setDeep`. This prevents
+ * env-override-style inputs like `ALDUIN__proto____polluted=1` from escalating
+ * into runtime-global prototype pollution.
+ */
+export const FORBIDDEN_KEYS: ReadonlySet<string> = new Set([
+  '__proto__',
+  'prototype',
+  'constructor',
+]);
+
+/** True if any segment is a forbidden key (case-sensitive match). */
+function hasForbiddenSegment(segments: readonly string[]): boolean {
+  for (const seg of segments) {
+    if (FORBIDDEN_KEYS.has(seg)) return true;
+  }
+  return false;
+}
+
 // ── Schema walking ────────────────────────────────────────────────────────────
 
 /**
@@ -32,11 +54,21 @@ export function childSchema(schema: ZodTypeAny, key: string): ZodTypeAny | null 
 /**
  * Validate that `segments` form a known path in the AlduinConfig Zod schema.
  * Returns the leaf schema if valid, or throws with a descriptive message.
+ *
+ * Rejects paths containing any key in FORBIDDEN_KEYS so a malicious env
+ * override cannot walk into Object.prototype or a constructor.
  */
 export function validatePath(
   segments: string[],
   errorPrefix = 'config path'
 ): ZodTypeAny {
+  if (hasForbiddenSegment(segments)) {
+    throw new Error(
+      `${errorPrefix}: refused to walk forbidden path segment in "${segments.join('.')}" ` +
+        `(forbidden: __proto__, prototype, constructor).`
+    );
+  }
+
   let current: ZodTypeAny = alduinConfigSchema;
   const walked: string[] = [];
   for (const seg of segments) {
@@ -78,21 +110,37 @@ export function coerceValue(raw: string, leafSchema: ZodTypeAny): unknown {
 /**
  * Set a nested value inside `obj` by following `segments`.
  * Intermediate objects are created if missing.
+ *
+ * Rejects any path containing a forbidden segment (__proto__, prototype,
+ * constructor) to prevent prototype pollution. Intermediate objects created
+ * here use Object.create(null) so they have no inherited properties for a
+ * crafted child key to override.
  */
 export function setDeep(
   obj: Record<string, unknown>,
   segments: string[],
   value: unknown
 ): void {
+  if (hasForbiddenSegment(segments)) {
+    throw new Error(
+      `setDeep: refused to walk forbidden path segment in "${segments.join('.')}" ` +
+        `(forbidden: __proto__, prototype, constructor).`
+    );
+  }
+
   let cursor = obj;
   for (let i = 0; i < segments.length - 1; i++) {
     const seg = segments[i]!;
+    // Use Object.prototype.hasOwnProperty to avoid walking into inherited keys.
+    const existing = Object.prototype.hasOwnProperty.call(cursor, seg)
+      ? cursor[seg]
+      : undefined;
     if (
-      typeof cursor[seg] !== 'object' ||
-      cursor[seg] === null ||
-      Array.isArray(cursor[seg])
+      typeof existing !== 'object' ||
+      existing === null ||
+      Array.isArray(existing)
     ) {
-      cursor[seg] = {};
+      cursor[seg] = Object.create(null) as Record<string, unknown>;
     }
     cursor = cursor[seg] as Record<string, unknown>;
   }
