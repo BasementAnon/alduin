@@ -38,7 +38,7 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 │                              │                                │
 │  Plugin Host (MCP) ─── Skills Registry ─── Tool Registry      │
 │                                                               │
-└──────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────-──┘
                                │ PresentationPayload
                                ▼
 ┌───────────────────────────────────────────────────────────────┐
