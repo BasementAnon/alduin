@@ -141,6 +141,53 @@ ALDUIN_MEMORY__HOT_TURNS=10
 
 Paths are validated against the schema at startup — unknown paths are rejected, and values are coerced to the correct type automatically.
 
+## Securing your Telegram bot
+
+By default, any Telegram user who discovers your bot's username can send it messages. Those messages will hit the orchestrator and consume your API budget. You should lock this down before running in any environment where the bot token could be exposed.
+
+### 1. Set an allowed user list in config
+
+Add an `allowed_user_ids` list to your `config.yaml`. Only these Telegram user IDs will be processed — all other messages are silently dropped before reaching the orchestrator, session resolver, or any LLM call.
+
+```yaml
+channels:
+  telegram:
+    enabled: true
+    mode: longpoll
+    token_env: TELEGRAM_BOT_TOKEN
+    allowed_user_ids:
+      - 123456789       # your Telegram user ID
+      - 987654321       # another authorized user
+```
+
+To find your Telegram user ID, message [@userinfobot](https://t.me/userinfobot) on Telegram.
+
+### 2. Configure BotFather privacy settings
+
+These settings are managed through [@BotFather](https://t.me/BotFather) on Telegram:
+
+- **Group Privacy** (`/setprivacy` → Enabled): when the bot is in a group, it only sees messages that start with `/` or directly @mention it. This reduces noise but is not access control — any group member can still invoke it.
+- **Join Groups** (`/setjoingroups` → Disabled): prevents anyone from adding your bot to groups. Recommended unless you specifically need group functionality.
+
+### 3. Webhook mode hardening
+
+If running in webhook mode, also ensure:
+
+- Firewall the webhook port to only accept traffic from Telegram's IP ranges (`149.154.160.0/20` and `91.108.4.0/22`).
+- Set `TELEGRAM_WEBHOOK_SECRET` in your `.env` and configure it in BotFather — Alduin verifies this signature on every inbound webhook.
+- Never expose the webhook endpoint on a wildcard (`0.0.0.0`) without a reverse proxy in front.
+
+### Risk summary
+
+| Risk | Without mitigation | With mitigation |
+|------|-------------------|-----------------|
+| Unauthorized users send messages | Messages hit orchestrator, consume API budget, receive responses | Dropped at adapter level, zero cost |
+| Bot added to unknown group | All group members can interact | `/setjoingroups` disabled prevents this |
+| Webhook endpoint discovered | Attacker can forge inbound messages | Signature verification + IP allowlist reject forgeries |
+| Bot token leaked | Full impersonation of your bot | Rotate token via BotFather immediately; revoke old token |
+
+If your bot token is ever compromised, revoke it immediately via BotFather (`/revoke`) and run `npm run init` to re-provision.
+
 ## Next steps
 
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design
