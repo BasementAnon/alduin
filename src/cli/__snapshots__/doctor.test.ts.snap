@@ -1,0 +1,52 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatDoctorTable > matches snapshot for a fully-passing result set 1`] = `
+"Alduin Doctor — config.yaml
+┌──────────────────────────────────┬──────────┬────────────────────────────────┐
+│ Check                            │ Status   │ Detail                         │
+├──────────────────────────────────┼──────────┼────────────────────────────────┤
+│ Schema validation                │ ✓ pass   │                                │
+│ Catalog version                  │ ✓ pass   │ 2026-04-14                     │
+│ Model pins exist in catalog      │ ✓ pass   │ 2 pins OK                      │
+│ No deprecated model pins         │ ✓ pass   │                                │
+│ ALDUIN_* env overrides parse     │ ✓ pass   │                                │
+│ Generated schema up to date      │ ✓ pass   │ SHA abc123                     │
+│ Vault encrypt/decrypt round-trip │ ○ skip   │ Vault check skipped            │
+│ No unresolved SecretRefs         │ ○ skip   │ Vault check skipped            │
+└──────────────────────────────────┴──────────┴────────────────────────────────┘
+All checks passed."
+`;
+
+exports[`formatDoctorTable > matches snapshot for a result set after --fix 1`] = `
+"Alduin Doctor — config.yaml
+┌──────────────────────────────────┬──────────┬────────────────────────────────┐
+│ Check                            │ Status   │ Detail                         │
+├──────────────────────────────────┼──────────┼────────────────────────────────┤
+│ Schema validation                │ ✓ pass   │                                │
+│ Catalog version                  │ ↪ fixed  │ Fixed: 2026-04-14              │
+│ Model pins exist in catalog      │ ✓ pass   │ 2 pins OK                      │
+│ No deprecated model pins         │ ✓ pass   │                                │
+│ ALDUIN_* env overrides parse     │ ✓ pass   │                                │
+│ Generated schema up to date      │ ↪ fixed  │ Fixed: SHA 076c8ad9a5414c22    │
+│ Vault encrypt/decrypt round-trip │ ○ skip   │ Vault check skipped            │
+│ No unresolved SecretRefs         │ ○ skip   │ Vault check skipped            │
+└──────────────────────────────────┴──────────┴────────────────────────────────┘
+All checks passed."
+`;
+
+exports[`formatDoctorTable > matches snapshot for a result set with failures 1`] = `
+"Alduin Doctor — config.broken.yaml
+┌──────────────────────────────┬──────────┬────────────────────────────────────┐
+│ Check                        │ Status   │ Detail                             │
+├──────────────────────────────┼──────────┼────────────────────────────────────┤
+│ Schema validation            │ ✓ pass   │                                    │
+│ Catalog version              │ ⚠ warn   │ Config pins 1999-01-01, catalog is │
+│ Model pins exist in catalog  │ ✗ fail   │ Unknown: fake/model-x              │
+│ No deprecated model pins     │ ✓ pass   │                                    │
+│ ALDUIN_* env overrides parse │ ✗ fail   │ env-override: unknown config path  │
+│ Generated schema up to date  │ ⚠ warn   │ Committed SHA abc ≠ fresh xyz      │
+│ Vault encrypt/decrypt round- │ ○ skip   │ Vault check skipped                │
+│ No unresolved SecretRefs     │ ○ skip   │ Vault check skipped                │
+└──────────────────────────────┴──────────┴────────────────────────────────────┘
+2 check(s) failed."
+`;
