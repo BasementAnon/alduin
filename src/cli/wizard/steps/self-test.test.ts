@@ -6,20 +6,22 @@ describe('formatSelfTestReport', () => {
   it('renders an all-passing report', () => {
     const report: SelfTestReport = {
       telegram: { ok: true, latencyMs: 120 },
-      classifier: {
-        model: 'anthropic/claude-haiku-4',
-        role: 'classifier',
-        ok: true,
-        latencyMs: 340,
-        estimatedCostUsd: 0.0000012,
-      },
-      orchestrator: {
-        model: 'anthropic/claude-sonnet-4-6',
-        role: 'orchestrator',
-        ok: true,
-        latencyMs: 820,
-        estimatedCostUsd: 0.0000054,
-      },
+      providerPings: [
+        {
+          model: 'anthropic/claude-haiku-4',
+          role: 'classifier',
+          ok: true,
+          latencyMs: 340,
+          estimatedCostUsd: 0.0000012,
+        },
+        {
+          model: 'anthropic/claude-sonnet-4-6',
+          role: 'orchestrator',
+          ok: true,
+          latencyMs: 820,
+          estimatedCostUsd: 0.0000054,
+        },
+      ],
     };
     const text = formatSelfTestReport(report);
     expect(text).toContain('✓');
@@ -33,14 +35,16 @@ describe('formatSelfTestReport', () => {
 
   it('renders failure lines with error message', () => {
     const report: SelfTestReport = {
-      classifier: {
-        model: 'anthropic/claude-haiku-4',
-        role: 'classifier',
-        ok: false,
-        latencyMs: 50,
-        estimatedCostUsd: 0,
-        error: 'Unauthorized',
-      },
+      providerPings: [
+        {
+          model: 'anthropic/claude-haiku-4',
+          role: 'classifier',
+          ok: false,
+          latencyMs: 50,
+          estimatedCostUsd: 0,
+          error: 'Unauthorized',
+        },
+      ],
     };
     const text = formatSelfTestReport(report);
     expect(text).toContain('✗');
@@ -50,6 +54,7 @@ describe('formatSelfTestReport', () => {
   it('renders Telegram failure with error', () => {
     const report: SelfTestReport = {
       telegram: { ok: false, latencyMs: 5000, error: 'chat not found' },
+      providerPings: [],
     };
     const text = formatSelfTestReport(report);
     expect(text).toContain('✗');
@@ -57,23 +62,24 @@ describe('formatSelfTestReport', () => {
   });
 
   it('renders "(no tests run)" when report is empty', () => {
-    const text = formatSelfTestReport({});
+    const text = formatSelfTestReport({ providerPings: [] });
     expect(text).toContain('no tests run');
   });
 
   it('renders only the sections that are present', () => {
     const report: SelfTestReport = {
-      orchestrator: {
-        model: 'anthropic/claude-sonnet-4-6',
-        role: 'orchestrator',
-        ok: true,
-        latencyMs: 500,
-        estimatedCostUsd: 0.000003,
-      },
+      providerPings: [
+        {
+          model: 'anthropic/claude-sonnet-4-6',
+          role: 'orchestrator',
+          ok: true,
+          latencyMs: 500,
+          estimatedCostUsd: 0.000003,
+        },
+      ],
     };
     const text = formatSelfTestReport(report);
     expect(text).not.toContain('Telegram');
-    expect(text).not.toContain('classifier');
     expect(text).toContain('orchestrator');
   });
 });

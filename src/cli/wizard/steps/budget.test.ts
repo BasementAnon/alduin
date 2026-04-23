@@ -3,26 +3,23 @@ import { buildBudgetConfig } from './budget.js';
 
 describe('buildBudgetConfig', () => {
   it('sets daily_limit_usd from answers', () => {
-    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8 });
+    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8, perTaskLimitUsd: 2 });
     expect(b.daily_limit_usd).toBe(10);
   });
 
   it('sets warning_threshold from answers', () => {
-    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.9 });
+    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.9, perTaskLimitUsd: 2 });
     expect(b.warning_threshold).toBe(0.9);
   });
 
-  it('auto-computes per_task_limit_usd as 20% of daily, capped at $2', () => {
-    // 20% of $10 = $2 → capped at $2
-    expect(buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8 }).per_task_limit_usd).toBe(2);
-    // 20% of $50 = $10 → capped at $2
-    expect(buildBudgetConfig({ dailyLimitUsd: 50, warningThreshold: 0.8 }).per_task_limit_usd).toBe(2);
-    // 20% of $5 = $1 → not capped
-    expect(buildBudgetConfig({ dailyLimitUsd: 5, warningThreshold: 0.8 }).per_task_limit_usd).toBe(1);
+  it('sets per_task_limit_usd from answers', () => {
+    expect(buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8, perTaskLimitUsd: 2 }).per_task_limit_usd).toBe(2);
+    expect(buildBudgetConfig({ dailyLimitUsd: 50, warningThreshold: 0.8, perTaskLimitUsd: 5 }).per_task_limit_usd).toBe(5);
+    expect(buildBudgetConfig({ dailyLimitUsd: 5, warningThreshold: 0.8, perTaskLimitUsd: 1 }).per_task_limit_usd).toBe(1);
   });
 
   it('does not include per_model_limits when undefined', () => {
-    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8 });
+    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8, perTaskLimitUsd: 2 });
     expect(b.per_model_limits).toBeUndefined();
   });
 
@@ -30,6 +27,7 @@ describe('buildBudgetConfig', () => {
     const b = buildBudgetConfig({
       dailyLimitUsd: 10,
       warningThreshold: 0.8,
+      perTaskLimitUsd: 2,
       perModelLimits: {},
     });
     expect(b.per_model_limits).toBeUndefined();
@@ -39,6 +37,7 @@ describe('buildBudgetConfig', () => {
     const b = buildBudgetConfig({
       dailyLimitUsd: 20,
       warningThreshold: 0.8,
+      perTaskLimitUsd: 2,
       perModelLimits: { 'anthropic/claude-opus-4-6': 5, 'openai/gpt-4.1': 3 },
     });
     expect(b.per_model_limits).toEqual({
@@ -48,7 +47,7 @@ describe('buildBudgetConfig', () => {
   });
 
   it('produces a valid BudgetConfig shape', () => {
-    const b = buildBudgetConfig({ dailyLimitUsd: 15, warningThreshold: 0.75 });
+    const b = buildBudgetConfig({ dailyLimitUsd: 15, warningThreshold: 0.75, perTaskLimitUsd: 2 });
     expect(typeof b.daily_limit_usd).toBe('number');
     expect(typeof b.per_task_limit_usd).toBe('number');
     expect(typeof b.warning_threshold).toBe('number');

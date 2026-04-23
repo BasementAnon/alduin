@@ -9,7 +9,7 @@ Get Alduin running in under 5 minutes.
 - At least one provider API key (Anthropic, OpenAI, or DeepSeek)
 - Optional: [Ollama](https://ollama.com) for local models
 
-## 1. Clone and install
+## 1. Clone, install, and build
 
 ```bash
 git clone https://github.com/BasementAnon/alduin.git
@@ -18,45 +18,30 @@ npm install
 npm run build
 ```
 
-## 2. Set up your environment
-
-Copy the example env file and fill in your API keys:
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and add at minimum one provider key:
-
-```bash
-ANTHROPIC_API_KEY=sk-ant-...
-# or
-OPENAI_API_KEY=sk-...
-```
-
-If you plan to use the Telegram bot, also set:
-
-```bash
-TELEGRAM_BOT_TOKEN=123456789:ABCdef...
-```
-
-## 3. Run the setup wizard
+## 2. Run the setup wizard
 
 ```bash
 npm run init
 ```
 
-The wizard walks you through:
+That's it. The wizard handles everything interactively — no need to manually edit `.env` or `config.yaml`. It walks you through 10 steps:
 
-1. **Channel** — Telegram or CLI-only; long-poll (dev) or webhook (prod)
-2. **Tokens** — bot token is written directly to the encrypted vault (never stored as plaintext on disk)
-3. **Models** — pick your orchestrator and classifier from the pinned catalog
-4. **Budget** — set a daily spend limit, warning threshold, and optional per-model caps
-5. **Self-test** — runs one classifier + one orchestrator round-trip to verify everything works
+| Step | What it does |
+|------|-------------|
+| **0. Prerequisites** | Verifies Node ≥ 22, dependencies installed, build is current |
+| **1. Welcome** | Detects existing config, offers fresh install or reconfigure |
+| **2. Providers** | Multi-select LLM providers, enter API keys (encrypted in vault), test connectivity |
+| **3. Models** | Assign models per role (orchestrator, classifier, executors) — fast-track defaults or customize each |
+| **4. Budget** | Daily spend limit, per-task limit, warning threshold, optional per-model caps |
+| **5. Channel** | CLI / Telegram / Both — validates bot token via getMe, configures webhook or long-poll, sets up user allowlist |
+| **6. Skills** | Enable/disable curated skills (research, code-review, summarize, etc.) |
+| **7. Owner** | Seeds the first admin owner for Telegram commands |
+| **8. Self-test** | Round-trip LLM calls with latency and cost report |
+| **9. Summary** | Review all choices, confirm, write config atomically |
 
-You can Ctrl-C at any step safely. The wizard generates `config.yaml` — you can also edit this file manually afterward. See `config.example.yaml` for all available options.
+You can Ctrl-C at any step safely — no partial config is written until you confirm in Step 9. API keys are stored in the encrypted vault, never as plaintext on disk.
 
-## 4. Start Alduin
+## 3. Start Alduin
 
 **Development (CLI-only or Telegram long-poll):**
 
@@ -79,7 +64,7 @@ node dist/cli.js --config config.yaml
 
 In production, set `channels.telegram.mode: webhook` in your config and provide a public HTTPS URL.
 
-## 5. Verify your setup
+## 4. Verify your setup
 
 Run the built-in diagnostics:
 
@@ -141,9 +126,19 @@ ALDUIN_MEMORY__HOT_TURNS=10
 
 Paths are validated against the schema at startup — unknown paths are rejected, and values are coerced to the correct type automatically.
 
+## Manual configuration (power users)
+
+If you prefer to configure Alduin by hand instead of using the wizard:
+
+1. Copy `.env.example` to `.env` and fill in your API keys
+2. Copy `config.example.yaml` to `config.yaml` and edit to taste
+3. Run `npm run dev -- doctor` to verify your setup
+
+See `config.example.yaml` for all available options and their documentation.
+
 ## Securing your Telegram bot
 
-By default, any Telegram user who discovers your bot's username can send it messages. Those messages will hit the orchestrator and consume your API budget. You should lock this down before running in any environment where the bot token could be exposed.
+The wizard (Step 5) guides you through Telegram security interactively. If you configured manually, here's what to set up:
 
 ### 1. Set an allowed user list in config
 

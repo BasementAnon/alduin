@@ -8,51 +8,61 @@
 /**
  * Alduin first-run wizard.
  *
- * Flow (each step is interruptible via Ctrl-C):
- *   1. pick-channel  — Telegram vs CLI, longpoll vs webhook
- *   2. paste-tokens  — bot token into vault; auto-generate webhook secret
- *   3. pick-models   — orchestrator + classifier from catalog; pin validation
- *   4. budget        — daily limit, warning threshold, optional per-model caps
- *   5. self-test     — classifier + orchestrator round-trip; latency + cost
+ * Flow (10 steps, each Ctrl-C safe):
+ *   0. prerequisites    — Node ≥ 22, node_modules, build freshness
+ *   1. welcome          — version, fresh vs reconfigure
+ *   2. provider-setup   — multi-select providers, API keys, connectivity test
+ *   3. pick-models      — per-role model assignment from catalog
+ *   4. budget           — daily, per-task, per-model limits
+ *   5. channel          — CLI / Telegram / Both + token validation + security
+ *   6. skills           — multi-select curated skills
+ *   7. owner-bootstrap  — seed first owner role
+ *   8. self-test        — round-trip LLM + Telegram connectivity
+ *   9. summary          — review, confirm, atomic write
  *
- * On Ctrl-C before commit: if enough data was collected the user is offered a
- * chance to save a partial config so they can resume later.
+ * All config choices are held in memory until Step 9. Vault writes happen
+ * inline (Steps 2 and 5) but are cleaned up on Ctrl-C via an exit handler.
  */
 
-import { cancel, confirm, intro, log, note, outro } from '@clack/prompts';
-import { existsSync, writeFileSync } from 'node:fs';
+import { cancel, log, note } from '@clack/prompts';
 import { stringify as toYaml } from 'yaml';
 import { loadCatalog } from '../../catalog/catalog.js';
 import type { AlduinConfig } from '../../config/types.js';
 import { OSKeychain } from '../../connectors/keychain.js';
 import { CredentialVault } from '../../secrets/vault.js';
+import { bootstrapOwner, formatBootstrapError } from '../../auth/bootstrap.js';
+import { openSqlite } from '../../db/open.js';
 import {
   appendWizardAuditEntry,
   ensureDir,
-  guard,
   writeEnvVar,
 } from './helpers.js';
-import { buildChannelConfig, runPickChannel } from './steps/pick-channel.js';
-import { runPasteTokens, writeTokensToVault } from './steps/paste-tokens.js';
+import type { WizardState } from './types.js';
+import { WizardCancelledError } from './types.js';
+
+// Steps
+import { runPrerequisites } from './steps/prerequisites.js';
+import { runWelcome } from './steps/welcome.js';
+import { runProviderSetup, cleanupVaultScopes } from './steps/providers.js';
+import { buildModelsConfig, buildProvidersConfigFromSetup, runPickModels } from './steps/pick-models.js';
 import { buildBudgetConfig, runBudget } from './steps/budget.js';
-import { buildModelsConfig, runPickModels } from './steps/pick-models.js';
+import { buildChannelConfig, runChannelSetup, writeChannelTokensToVault } from './steps/channel.js';
+import { runSkillsSelection } from './steps/skills.js';
 import { runOwnerBootstrap } from './steps/owner.js';
 import { formatSelfTestReport, runSelfTest } from './steps/self-test.js';
-import type { ChannelAnswers, BudgetAnswers, ModelAnswers, TokenAnswers, WizardCancelledError, WizardState } from './types.js';
-import { bootstrapOwner, formatBootstrapError } from '../../auth/bootstrap.js';
-import { openSqlite } from '../../db/open.js';
+import { commitConfig, runSummary } from './steps/summary.js';
 
 const CONFIG_PATH = './config.yaml';
 const VAULT_PATH = '.alduin/vault.db';
 const AUTH_DB_PATH = '.alduin-sessions.db';
+const SKILLS_DIR = './skills';
 const CATALOG_VERSION = '2026-04-14';
 
 // ── Config assembly ───────────────────────────────────────────────────────────
 
 function assembleConfig(state: WizardState): AlduinConfig {
-  const { channel, tokens, models, budget } = state;
-  const { orchestrator, executors, providers, routing, fallbacks } =
-    buildModelsConfig(models);
+  const { orchestrator, executors, routing, fallbacks } = buildModelsConfig(state.models);
+  const providers = buildProvidersConfigFromSetup(state.providerSetup);
 
   const config: AlduinConfig = {
     catalog_version: CATALOG_VERSION,
@@ -60,8 +70,8 @@ function assembleConfig(state: WizardState): AlduinConfig {
     executors,
     providers,
     routing,
-    budgets: buildBudgetConfig(budget),
-    channels: buildChannelConfig(channel),
+    budgets: buildBudgetConfig(state.budget),
+    channels: buildChannelConfig(state.channel),
     tenants: { default_tenant_id: 'default' },
     memory: {
       hot_turns: 3,
@@ -76,17 +86,11 @@ function assembleConfig(state: WizardState): AlduinConfig {
     },
   };
 
-  if (Object.keys(fallbacks).length > 0) {
+  if (fallbacks && Object.keys(fallbacks).length > 0) {
     config.fallbacks = fallbacks;
   }
 
-  void tokens; // tokens are written to vault separately, not embedded in config
   return config;
-}
-
-/** True when enough state has been collected to write a minimal valid config. */
-function isCommittable(state: Partial<WizardState>): state is WizardState {
-  return !!(state.channel && state.tokens && state.models && state.budget);
 }
 
 // ── Vault setup ───────────────────────────────────────────────────────────────
@@ -129,80 +133,79 @@ async function openVault(): Promise<{ vault: CredentialVault; masterSecret: stri
   return { vault, masterSecret };
 }
 
-// ── Commit ────────────────────────────────────────────────────────────────────
+// ── Owner commit ──────────────────────────────────────────────────────────────
 
-async function commit(
-  state: WizardState,
-  vault: CredentialVault
-): Promise<void> {
-  // 1. Assemble + write config.yaml
-  const config = assembleConfig(state);
-  writeFileSync(CONFIG_PATH, toYaml(config), 'utf-8');
-  log.success(`Config written to ${CONFIG_PATH}`);
+function commitOwner(state: WizardState, config: AlduinConfig): void {
+  if (!state.owner?.userId) return;
 
-  // 2. Seed vault with credentials
-  writeTokensToVault(vault, state.channel, state.tokens);
-  log.success('Credentials stored in encrypted vault.');
-
-  // 3. Write env var stubs to .env so the runtime can reference them
-  if (state.channel.channel === 'telegram' && !existsSync('.env')) {
-    writeEnvVar('TELEGRAM_BOT_TOKEN', state.tokens.botToken ?? '');
-  }
-
-  // 4. Seed the first owner role (if the user supplied one).
-  //    Uses the same guarded bootstrap helper as `alduin admin bootstrap`, so
-  //    re-running `alduin init` cannot silently swap the owner on an existing
-  //    tenant — the user must use the admin role commands to transfer.
-  if (state.owner?.userId) {
-    const authDb = openSqlite(AUTH_DB_PATH);
-    try {
-      const tenantId =
-        state.owner.tenantId || config.tenants?.default_tenant_id || 'default';
-      const result = bootstrapOwner(authDb, {
-        tenantId,
-        userId: state.owner.userId,
-      });
-      if (result.ok) {
-        log.success(
-          `Owner seeded: tenant="${result.value.tenantId}" user_id="${result.value.userId}".`
-        );
-      } else if (result.error.kind === 'owner_exists') {
-        log.warn(
-          `Owner already exists for tenant "${result.error.tenantId}" ` +
-            `(user_id="${result.error.existingUserId}"). Skipping — use admin role ` +
-            'commands to transfer ownership.'
-        );
-      } else {
-        log.warn(formatBootstrapError(result.error));
-      }
-    } finally {
-      authDb.close();
+  const authDb = openSqlite(AUTH_DB_PATH);
+  try {
+    const tenantId =
+      state.owner.tenantId || config.tenants?.default_tenant_id || 'default';
+    const result = bootstrapOwner(authDb, {
+      tenantId,
+      userId: state.owner.userId,
+    });
+    if (result.ok) {
+      log.success(
+        `Owner seeded: tenant="${result.value.tenantId}" user_id="${result.value.userId}".`
+      );
+    } else if (result.error.kind === 'owner_exists') {
+      log.warn(
+        `Owner already exists for tenant "${result.error.tenantId}" ` +
+          `(user_id="${result.error.existingUserId}"). Skipping — use admin role ` +
+          'commands to transfer ownership.'
+      );
+    } else {
+      log.warn(formatBootstrapError(result.error));
     }
+  } finally {
+    authDb.close();
   }
+}
+
+// ── Ctrl-C exit handler ───────────────────────────────────────────────────────
+
+function installExitHandler(vault: CredentialVault): () => void {
+  const handler = (): void => {
+    try {
+      cleanupVaultScopes(vault);
+    } catch {
+      // best effort
+    }
+    try {
+      vault.close();
+    } catch {
+      // best effort
+    }
+  };
+
+  const sigintHandler = (): void => {
+    handler();
+    process.exit(130);
+  };
+  const sigtermHandler = (): void => {
+    handler();
+    process.exit(143);
+  };
+
+  process.on('SIGINT', sigintHandler);
+  process.on('SIGTERM', sigtermHandler);
+
+  return handler;
 }
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
-/**
- * Run the full init wizard. Replaces the legacy `src/cli/init.ts`.
- * Called by `alduin init`.
- */
 export async function runInitWizard(): Promise<void> {
-  intro('Alduin — First-Run Setup');
-
-  // Guard against re-init
-  if (existsSync(CONFIG_PATH)) {
-    const overwrite = guard(
-      await confirm({
-        message: `${CONFIG_PATH} already exists. Overwrite?`,
-        initialValue: false,
-      })
-    );
-    if (!overwrite) {
-      outro('Existing config preserved. Run `alduin init` again to reconfigure.');
-      return;
-    }
+  // ── Step 0: Prerequisites ───────────────────────────────────────────────────
+  const prereqOk = runPrerequisites();
+  if (!prereqOk) {
+    process.exit(1);
   }
+
+  // ── Step 1: Welcome ─────────────────────────────────────────────────────────
+  const welcome = await runWelcome(CONFIG_PATH);
 
   // Load catalog for model selection
   const catalogResult = loadCatalog();
@@ -211,44 +214,51 @@ export async function runInitWizard(): Promise<void> {
     log.warn('Model catalog could not be loaded — model selection will use built-in defaults.');
   }
 
-  // Open / create vault (abort if keychain is unavailable)
+  // Open / create vault
   const vaultResult = await openVault();
   if (!vaultResult) {
     cancel('Vault setup failed. See instructions above.');
     process.exit(1);
   }
   const { vault } = vaultResult;
+  installExitHandler(vault);
 
   // ── Collect answers (interruptible) ─────────────────────────────────────────
-  const state: Partial<WizardState> = {};
+  const state: Partial<WizardState> = { welcome };
 
   try {
-    state.channel = await runPickChannel();
-    state.tokens = await runPasteTokens(state.channel);
-    state.models = await runPickModels(catalog);
-    state.budget = await runBudget();
-    // Owner bootstrap is optional — users who skip here can run
-    // `alduin admin bootstrap --tenant <t> --user-id <u>` later.
-    state.owner = await runOwnerBootstrap(state.channel);
-  } catch (e) {
-    // WizardCancelledError — user pressed Ctrl-C
-    const name = (e as WizardCancelledError).name;
-    if (name === 'WizardCancelledError') {
-      if (isCommittable(state)) {
-        const save = await confirm({
-          message: 'Save partial config before exiting?',
-          initialValue: false,
-        }).catch(() => false);
+    // Step 2: Provider setup
+    state.providerSetup = await runProviderSetup(vault);
 
-        if (save && !isSymbol(save)) {
-          await commit(state, vault);
-          note(
-            'Partial config saved. Run `alduin init` to complete or resume setup.',
-            'Partial save'
-          );
-          appendWizardAuditEntry('wizard partial-save (cancelled during budget step)');
-        }
-      }
+    // Step 3: Model assignment
+    state.models = await runPickModels(catalog, state.providerSetup);
+
+    // Step 4: Budget
+    state.budget = await runBudget(state.models, catalog);
+
+    // Step 5: Channel setup
+    state.channel = await runChannelSetup(vault);
+
+    // Step 6: Skills selection
+    state.skills = await runSkillsSelection(SKILLS_DIR);
+
+    // Step 7: Owner bootstrap
+    state.owner = await runOwnerBootstrap(state.channel);
+
+    // Step 8: Self-test
+    const testReport = await runSelfTest(
+      state.models,
+      state.channel,
+      state.providerSetup,
+      catalog
+    );
+    if (testReport) {
+      const formatted = formatSelfTestReport(testReport);
+      note(formatted, 'Self-test results');
+    }
+  } catch (e) {
+    if (e instanceof WizardCancelledError) {
+      appendWizardAuditEntry('wizard cancelled by user');
       cancel('Setup cancelled.');
       vault.close();
       process.exit(0);
@@ -257,57 +267,69 @@ export async function runInitWizard(): Promise<void> {
     throw e;
   }
 
-  // ── Commit (all steps completed) ─────────────────────────────────────────────
+  // Type-check: ensure all required state is present
+  if (
+    !state.welcome ||
+    !state.providerSetup ||
+    !state.models ||
+    !state.budget ||
+    !state.channel ||
+    !state.skills
+  ) {
+    cancel('Incomplete wizard state — this is a bug.');
+    vault.close();
+    process.exit(1);
+  }
+
+  const fullState = state as WizardState;
+
+  // ── Step 9: Summary + write ─────────────────────────────────────────────────
   try {
-    await commit(state as WizardState, vault);
+    const confirmed = await runSummary(fullState, catalog, CONFIG_PATH);
+    if (!confirmed) {
+      vault.close();
+      process.exit(0);
+    }
+
+    // Assemble and write config
+    const config = assembleConfig(fullState);
+    const configYaml = toYaml(config, { lineWidth: 120 });
+
+    // Commit config atomically
+    commitConfig(configYaml, CONFIG_PATH, fullState.channel);
+
+    // Write channel tokens to vault (idempotent — may already be written in Step 5)
+    writeChannelTokensToVault(vault, fullState.channel);
+
+    // Seed owner role
+    commitOwner(fullState, config);
+
+    // Write env var stubs for provider keys
+    for (const p of fullState.providerSetup.providers) {
+      if (p.apiKey) {
+        const envKey = p.id === 'anthropic' ? 'ANTHROPIC_API_KEY'
+          : p.id === 'openai' ? 'OPENAI_API_KEY'
+          : p.id === 'deepseek' ? 'DEEPSEEK_API_KEY'
+          : p.id === 'openai-compatible' ? 'CUSTOM_LLM_API_KEY'
+          : `${p.id.toUpperCase()}_API_KEY`;
+        writeEnvVar(envKey, p.apiKey);
+      }
+    }
+
+    // Audit entry
+    const a = fullState.models.assignments;
+    appendWizardAuditEntry(
+      `wizard completed: channel=${fullState.channel.channel} mode=${fullState.channel.mode} ` +
+        `orchestrator=${a.orchestrator} classifier=${a.classifier} ` +
+        `providers=${fullState.providerSetup.providers.map((p) => p.id).join(',')} ` +
+        `budget=$${fullState.budget.dailyLimitUsd}/day ` +
+        `skills=${fullState.skills.enabledSkills.join(',') || 'none'}`
+    );
   } catch (e) {
     log.error(`Failed to write config: ${e instanceof Error ? e.message : String(e)}`);
     vault.close();
     process.exit(1);
   }
 
-  // ── Step 5: self-test (optional) ─────────────────────────────────────────────
-  let selfTestSummary = 'skipped';
-  try {
-    const report = await runSelfTest(
-      vault,
-      state.models,
-      state.channel.channel,
-      catalog
-    );
-    if (report) {
-      const formatted = formatSelfTestReport(report);
-      note(formatted, 'Self-test results');
-      const allOk = Object.values(report).every((r) => r?.ok !== false);
-      selfTestSummary = allOk ? 'passed' : 'partial-failure';
-    }
-  } catch {
-    log.warn('Self-test did not complete — run `alduin doctor` to verify your setup.');
-    selfTestSummary = 'error';
-  }
-
-  // ── Audit entry ───────────────────────────────────────────────────────────────
-  appendWizardAuditEntry(
-    `wizard completed: channel=${state.channel.channel} mode=${state.channel.mode} ` +
-      `orchestrator=${state.models.orchestratorModel} classifier=${state.models.classifierModel} ` +
-      `budget=$${state.budget.dailyLimitUsd}/day self-test=${selfTestSummary}`
-  );
-
   vault.close();
-
-  // ── Outro ─────────────────────────────────────────────────────────────────────
-  const mode = state.channel.mode;
-  outro(`\
-Alduin is configured!
-
-Next steps:
-  1. npm run build
-  2. ${mode === 'longpoll' ? 'npx alduin' : 'npx alduin --config config.yaml'}
-
-Run 'alduin models diff' to check catalog alignment.
-Run 'alduin doctor' to verify your complete setup.`);
-}
-
-function isSymbol(v: unknown): v is symbol {
-  return typeof v === 'symbol';
 }
