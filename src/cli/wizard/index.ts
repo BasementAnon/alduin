@@ -105,7 +105,13 @@ async function openVault(): Promise<{ vault: CredentialVault; masterSecret: stri
   } else {
     try {
       masterSecret = await keychain.generateAndStore();
-      log.success('Generated vault master secret in OS keychain.');
+      // If ALDUIN_VAULT_SECRET was just written to .env (keytar fallback),
+      // report accordingly; otherwise it went to the OS keychain.
+      if (process.env['ALDUIN_VAULT_SECRET'] === masterSecret) {
+        log.success('Generated vault master secret (saved to .env).');
+      } else {
+        log.success('Generated vault master secret in OS keychain.');
+      }
     } catch (err) {
       log.error(
         `Cannot create credential vault:\n  ${err instanceof Error ? err.message : String(err)}\n\n` +
@@ -118,8 +124,12 @@ async function openVault(): Promise<{ vault: CredentialVault; masterSecret: stri
   const existingAuditKey = await keychain.getAuditHmacKey().catch(() => null);
   if (!existingAuditKey) {
     try {
-      await keychain.generateAndStoreAuditKey();
-      log.success('Generated audit HMAC key in OS keychain.');
+      const newAuditKey = await keychain.generateAndStoreAuditKey();
+      if (process.env['ALDUIN_AUDIT_HMAC_KEY'] === newAuditKey) {
+        log.success('Generated audit HMAC key (saved to .env).');
+      } else {
+        log.success('Generated audit HMAC key in OS keychain.');
+      }
     } catch (err) {
       log.warn(
         `Cannot persist audit key: ${err instanceof Error ? err.message : String(err)}\n` +

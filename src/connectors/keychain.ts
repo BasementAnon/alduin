@@ -46,7 +46,7 @@ export class OSKeychain implements KeychainProvider {
   /**
    * Generate a new master secret and persist it.
    * Called by `alduin init` — never called implicitly.
-   * Tries keytar first; if unavailable, throws with instructions.
+   * Tries keytar first; if unavailable, writes to .env as a fallback.
    */
   async generateAndStore(): Promise<string> {
     const { randomBytes } = await import('node:crypto');
@@ -55,12 +55,12 @@ export class OSKeychain implements KeychainProvider {
     const stored = await this.tryKeytar('set', newSecret);
     if (stored) return newSecret;
 
-    throw new Error(
-      'Cannot store master secret: keytar is not installed and ALDUIN_VAULT_SECRET is not set.\n' +
-      'Either:\n' +
-      '  • npm install keytar\n' +
-      '  • Set ALDUIN_VAULT_SECRET in your .env file to a random 64-char hex string.'
-    );
+    // Keytar unavailable — fall back to writing ALDUIN_VAULT_SECRET to .env.
+    // Import writeEnvVar lazily to avoid circular dependency.
+    const { writeEnvVar } = await import('../cli/wizard/helpers.js');
+    writeEnvVar('ALDUIN_VAULT_SECRET', newSecret);
+    process.env['ALDUIN_VAULT_SECRET'] = newSecret;
+    return newSecret;
   }
 
   async setMasterSecret(secret: string): Promise<void> {
@@ -106,6 +106,7 @@ export class OSKeychain implements KeychainProvider {
   /**
    * Generate a new audit HMAC key and persist it.
    * Called by `alduin init` — never called implicitly.
+   * Tries keytar first; if unavailable, writes to .env as a fallback.
    */
   async generateAndStoreAuditKey(): Promise<string> {
     const { randomBytes } = await import('node:crypto');
@@ -114,12 +115,11 @@ export class OSKeychain implements KeychainProvider {
     const stored = await this.tryKeytarAccount('set', AUDIT_ACCOUNT, key);
     if (stored) return key;
 
-    throw new Error(
-      'Cannot persist audit HMAC key: keytar is not installed and ALDUIN_AUDIT_HMAC_KEY is not set.\n' +
-      'Either:\n' +
-      '  • npm install keytar\n' +
-      '  • Set ALDUIN_AUDIT_HMAC_KEY in your .env file to a random 64-char hex string.'
-    );
+    // Keytar unavailable — fall back to writing ALDUIN_AUDIT_HMAC_KEY to .env.
+    const { writeEnvVar } = await import('../cli/wizard/helpers.js');
+    writeEnvVar('ALDUIN_AUDIT_HMAC_KEY', key);
+    process.env['ALDUIN_AUDIT_HMAC_KEY'] = key;
+    return key;
   }
 
   private async tryKeytarAccount(
