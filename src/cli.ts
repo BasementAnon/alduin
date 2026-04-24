@@ -8,6 +8,7 @@
 import readline from 'node:readline';
 import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
+import { execSync } from 'node:child_process';
 
 import { loadConfig } from './config/loader.js';
 import { loadCatalog } from './catalog/catalog.js';
@@ -130,6 +131,29 @@ async function main(): Promise<void> {
   }
 
   const positionalArgs = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+
+  // ── npm script shortcuts ────────────────────────────────────────────────────
+  // Allow `alduin build`, `alduin test`, etc. to delegate to the corresponding
+  // npm script so users never need to type `npm run` directly.
+  const NPM_SCRIPTS = new Set([
+    'build', 'build:sdk', 'dev', 'dev:telegram',
+    'test', 'test:watch', 'test:coverage',
+    'lint', 'clean', 'config:generate', 'config:check',
+  ]);
+
+  if (positionalArgs[0] && NPM_SCRIPTS.has(positionalArgs[0])) {
+    const script = positionalArgs[0];
+    const extra = process.argv.slice(3); // everything after the script name
+    const cmd = extra.length > 0
+      ? `npm run ${script} -- ${extra.join(' ')}`
+      : `npm run ${script}`;
+    try {
+      execSync(cmd, { stdio: 'inherit', cwd: process.env.ALDUIN_PROJECT_ROOT ?? process.cwd() });
+    } catch {
+      process.exit(1);
+    }
+    return;
+  }
 
   // Handle `init` subcommand
   if (positionalArgs[0] === 'init') {

@@ -15,6 +15,7 @@ Get Alduin running in under 5 minutes.
 git clone https://github.com/BasementAnon/alduin.git
 cd alduin
 npm install
+npm link              # makes the `alduin` command available globally
 alduin build
 ```
 

@@ -64,6 +64,7 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 ```bash
 npm install
+npm link                 # makes the `alduin` command available globally
 alduin build
 alduin init              # interactive first-run wizard
 ```
