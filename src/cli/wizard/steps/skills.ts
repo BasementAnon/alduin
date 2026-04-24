@@ -124,7 +124,7 @@ export async function runSkillsSelection(skillsDir: string): Promise<SkillsAnswe
 
   const selected = guard(
     await multiselect<string>({
-      message: 'Select which skills to enable:',
+      message: 'Select which skills to enable: (space to select, enter to confirm)',
       options: availableSkills.map((s) => {
         const roleLabel = EXECUTOR_LABELS[s.executorRole] ?? s.executorRole;
         return {

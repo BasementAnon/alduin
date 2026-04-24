@@ -258,7 +258,7 @@ export function cleanupVaultScopes(vault: CredentialVault): void {
 export async function runProviderSetup(vault: CredentialVault): Promise<ProviderAnswers> {
   const selectedIds = guard(
     await multiselect<string>({
-      message: 'Which LLM providers will you use?',
+      message: 'Which LLM providers will you use? (space to select, enter to confirm)',
       options: PROVIDER_DEFS.map((d) => ({
         label: d.label,
         value: d.id,
