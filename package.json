@@ -10,7 +10,7 @@
   "scripts": {
     "build:sdk": "npm run build --workspace=@alduin/plugin-sdk",
     "build": "npm run build:sdk && tsc && chmod +x dist/cli.js alduin && (npm link --silent >/dev/null 2>&1 && echo '\u2713 alduin linked globally \u2014 run: alduin <command>' || echo '\u26a0 could not auto-link alduin globally (permission?); use ./alduin <command> from the project root, or run: sudo npm link')",
-    "postbuild": "node scripts/postbuild-banner.js",
+    "postbuild": "cp src/catalog/models.catalog.json dist/catalog/ && node scripts/postbuild-banner.js",
     "dev": "tsx src/cli.ts",
     "dev:telegram": "tsx src/dev-telegram.ts",
     "init": "tsx src/cli.ts init",

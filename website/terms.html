@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B0B0C" />
+  <title>Terms of Use &mdash; Alduin</title>
+  <meta name="description" content="Terms of use for Alduin. Use at your own risk. Licensed as published on GitHub or as provided directly." />
+  <meta name="robots" content="index,follow" />
+
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230B0B0C'/><path d='M20 46 L32 18 L44 46 M25 38 H39' stroke='%23F2E7D5' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #FBFAF6;
+      --surface: #F3F0E8;
+      --ink: #0B0B0C;
+      --ink-2: #2A2A2C;
+      --muted: #6B6B6E;
+      --border: rgba(11, 11, 12, 0.10);
+      --border-soft: rgba(11, 11, 12, 0.06);
+      --accent: #D84315;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    a { color: inherit; text-decoration: underline; text-decoration-color: rgba(11,11,12,0.25); text-underline-offset: 3px; }
+    a:hover { text-decoration-color: var(--accent); color: var(--accent); }
+
+    .container { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 24px; }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: color-mix(in srgb, var(--bg) 82%, transparent);
+      backdrop-filter: saturate(140%) blur(14px);
+      -webkit-backdrop-filter: saturate(140%) blur(14px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s ease;
+    }
+    .nav.scrolled { border-bottom-color: var(--border-soft); }
+    .nav-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 66px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      font-size: 17px;
+      text-decoration: none;
+    }
+    .brand:hover { color: var(--ink); text-decoration: none; }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--ink); color: #F2E7D5;
+      display: inline-grid; place-items: center;
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 600;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--ink-2);
+      text-decoration: none;
+      padding: 8px 14px;
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      background: var(--bg);
+    }
+    .back:hover { background: var(--surface); color: var(--ink); text-decoration: none; }
+    .back svg { width: 14px; height: 14px; }
+
+    main {
+      padding: 56px 0 72px;
+    }
+
+    .eyebrow {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(36px, 4.5vw, 52px);
+      line-height: 1.06;
+      letter-spacing: -0.02em;
+      margin: 0 0 12px;
+    }
+    .updated {
+      color: var(--muted);
+      font-size: 14.5px;
+      margin-bottom: 44px;
+    }
+    .lead {
+      font-size: 17.5px;
+      color: var(--ink-2);
+      line-height: 1.6;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--border-soft);
+      margin-bottom: 36px;
+    }
+
+    h2 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(22px, 2.2vw, 27px);
+      line-height: 1.18;
+      letter-spacing: -0.012em;
+      margin: 44px 0 12px;
+      color: var(--ink);
+    }
+    h2 .num {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 500;
+      margin-right: 10px;
+      letter-spacing: 0.02em;
+      vertical-align: 3px;
+    }
+
+    p { margin: 0 0 14px; color: var(--ink-2); }
+    p.muted { color: var(--muted); font-size: 14.5px; }
+
+    strong { color: var(--ink); font-weight: 600; }
+
+    ul { padding-left: 22px; margin: 8px 0 14px; }
+    li { margin-bottom: 8px; color: var(--ink-2); }
+
+    code {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 13.5px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      padding: 1px 7px;
+      border-radius: 6px;
+      color: var(--ink);
+    }
+
+    .callout {
+      margin: 22px 0;
+      padding: 20px 22px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-left: 3px solid var(--accent);
+      border-radius: 10px;
+    }
+    .callout p { margin: 0; color: var(--ink); font-size: 15.5px; }
+    .callout .caps {
+      display: block;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11.5px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .tos-caps {
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid var(--border-soft);
+      margin: 44px 0 32px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-soft);
+      padding: 30px 0 48px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .foot-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+    }
+    .foot-links { display: flex; gap: 22px; }
+    .foot-links a { text-decoration: none; color: var(--muted); }
+    .foot-links a:hover { color: var(--ink); }
+
+    @media (max-width: 620px) {
+      main { padding: 36px 0 56px; }
+      .lead { font-size: 16px; }
+      h2 { margin-top: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav" id="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">A</span>
+        <span>Alduin</span>
+      </a>
+      <a class="back" href="/">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to home
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="eyebrow">Terms of Use</div>
+      <h1>Terms of Use</h1>
+      <p class="updated">Last updated: April 22, 2026</p>
+
+      <p class="lead">
+        These terms govern your use of Alduin (the &ldquo;Software&rdquo;), including any source code,
+        binaries, documentation, configuration, prompts, skills, plugins, websites, and related
+        materials (together, the &ldquo;Materials&rdquo;). By accessing, downloading, installing, running,
+        forking, modifying, or otherwise using the Software, you agree to these terms. If you do not
+        agree, do not use the Software.
+      </p>
+
+      <div class="callout">
+        <span class="caps">In short</span>
+        <p>
+          Alduin is experimental software built on novel AI technology. It is provided
+          &ldquo;as is,&rdquo; without warranties of any kind. <strong>Your use of the Software
+          is entirely at your own risk</strong>, and you are solely responsible for what you do with it
+          and for any outcomes that result from that use. The Software is licensed exclusively on
+          the terms of the license as published in the official GitHub repository, or as otherwise
+          provided to you directly.
+        </p>
+      </div>
+
+      <h2><span class="num">01</span>Acknowledgement of novel technology and AI risk</h2>
+      <p>
+        The Software integrates with, orchestrates, and relies upon large language models (&ldquo;LLMs&rdquo;)
+        and other artificial intelligence and machine learning systems. These technologies are novel,
+        rapidly evolving, and inherently non-deterministic. They can and do produce outputs that are
+        inaccurate, incomplete, biased, outdated, unsafe, offensive, hallucinated, or otherwise
+        unsuitable for a given purpose &mdash; without warning, and without any visible indicator that
+        the output is wrong.
+      </p>
+      <p>
+        By using the Software, <strong>you acknowledge and accept that:</strong>
+      </p>
+      <ul>
+        <li>LLMs and AI systems are a new class of technology whose behavior, failure modes, and long-term effects are not fully understood, even by their designers and operators.</li>
+        <li>Outputs generated by or through the Software may be wrong, misleading, fabricated, or harmful, and may change arbitrarily between runs on the same input.</li>
+        <li>Orchestration, delegation, planning, tool use, and autonomous execution can amplify these risks, including by taking actions you did not explicitly approve or that you cannot easily reverse.</li>
+        <li>You are solely responsible for reviewing, validating, and exercising independent judgment over any output, plan, action, or artifact produced by or via the Software before relying on it or allowing it to affect anything or anyone.</li>
+        <li>You should not use the Software for any task where an incorrect, unsafe, or unauthorized output could cause material harm, including financial, legal, medical, safety-critical, security-critical, or life-critical decisions.</li>
+      </ul>
+      <p>
+        You accept these risks knowingly and voluntarily as a condition of using the Software.
+      </p>
+
+      <h2><span class="num">02</span>License &mdash; governed exclusively by the published license</h2>
+      <p>
+        The Software is made available to you <strong>only</strong> under the terms of the license file
+        as published in the official source repository at
+        <a href="https://github.com/BasementAnon/alduin" target="_blank" rel="noopener">github.com/BasementAnon/alduin</a>
+        (the &ldquo;Repository License&rdquo;), or under a separate written license that has been provided to
+        you directly and is expressly identified as governing your use (a &ldquo;Direct License&rdquo;).
+        Collectively, the Repository License and any applicable Direct License are the
+        &ldquo;License.&rdquo;
+      </p>
+      <p>
+        <strong>You must read the License before you use the Software.</strong> The License controls
+        what you are and are not permitted to do with the Software &mdash; including, without limitation,
+        whether and how you may copy, modify, distribute, host, sublicense, commercialize, run as a
+        service, combine with other works, or relicense it. These Terms of Use do not expand, grant,
+        or imply any rights beyond those granted by the License, and nothing on this website or in
+        any marketing material should be read as doing so.
+      </p>
+      <p>
+        If any statement on this website, in documentation, in a third-party mirror, in a
+        conversation, or in any output of the Software appears to conflict with the License, the
+        License controls. If a Direct License has been provided to you and its terms conflict with the
+        Repository License, the Direct License controls <em>only</em> as to you and <em>only</em> to the
+        extent it expressly says so in writing.
+      </p>
+      <p>
+        The License may change over time. The version of the License that governs your use of a
+        particular copy, fork, or build of the Software is the version that was published at the
+        time you obtained that copy &mdash; not a later version, unless the License itself says otherwise.
+        You are responsible for checking the License before each use that could raise new license
+        questions, including before distributing, deploying, or building on top of the Software.
+      </p>
+      <p>
+        Any use of the Software <strong>outside the scope of the License is unauthorized</strong> and
+        terminates your rights automatically.
+      </p>
+
+      <h2><span class="num">03</span>Use at your own risk</h2>
+      <p>
+        <span class="tos-caps">Your use of the Software is at your own risk.</span> You assume full
+        responsibility for any decision to use the Software, for any configuration, model choice,
+        tool, plugin, skill, prompt, credential, or integration you connect to it, and for any
+        consequence of running it in any environment &mdash; local, cloud, production, or otherwise.
+      </p>
+      <p>
+        You are solely responsible for ensuring that your use of the Software complies with all
+        applicable laws, regulations, contracts, platform policies, export controls, sanctions
+        regimes, and third-party terms of service (including those of any model provider, hosting
+        provider, messaging platform, or data source you connect). You are solely responsible for
+        the data you feed into the Software, for the actions it takes on your behalf, and for the
+        outputs it produces, stores, or sends.
+      </p>
+
+      <h2><span class="num">04</span>No warranty</h2>
+      <p>
+        <span class="tos-caps">The Software and Materials are provided &ldquo;as is&rdquo; and
+        &ldquo;as available,&rdquo; without warranty of any kind</span>, whether express, implied,
+        statutory, or otherwise. To the maximum extent permitted by law, all warranties are
+        disclaimed, including without limitation any implied warranties of merchantability, fitness
+        for a particular purpose, title, non-infringement, accuracy, reliability, availability,
+        uninterrupted operation, error-free operation, security, performance, or that the Software
+        will meet your requirements.
+      </p>
+      <p>
+        No advice or information, whether oral or written, obtained from any source &mdash; including the
+        Software itself, its documentation, its outputs, this website, or any maintainer or
+        contributor &mdash; creates any warranty not expressly stated in these terms.
+      </p>
+
+      <h2><span class="num">05</span>No responsibility for your use</h2>
+      <p>
+        <strong>The authors, maintainers, and contributors of the Software are not responsible for
+        what you do with it, or for what it does when you use it.</strong> This includes, without
+        limitation, any action taken by the Software on your behalf, any output it generates, any
+        decision you make based on its output, any cost you incur (including model, infrastructure,
+        or third-party service costs), any data it reads, writes, transmits, deletes, or exposes,
+        and any downstream effect of any of the foregoing on you or on any third party.
+      </p>
+      <p>
+        To the maximum extent permitted by law, the authors, maintainers, and contributors shall
+        have <strong>no liability</strong> &mdash; in contract, tort (including negligence), strict
+        liability, or otherwise &mdash; for any direct, indirect, incidental, special, consequential,
+        exemplary, or punitive damages arising out of or in connection with your use of or inability
+        to use the Software, even if advised of the possibility of such damages. Where liability
+        cannot be excluded as a matter of law, it is limited to the maximum extent permitted.
+      </p>
+
+      <h2><span class="num">06</span>Third-party models, services, and dependencies</h2>
+      <p>
+        The Software is designed to interoperate with third-party components, including AI model
+        providers, local inference runtimes, messaging platforms, data sources, storage, operating
+        systems, and open-source dependencies. Those components are governed by their own licenses
+        and terms of service, which you are solely responsible for reviewing and complying with.
+        The authors, maintainers, and contributors of the Software do not control, endorse, or take
+        responsibility for those third-party components, their outputs, their availability, their
+        pricing, or any change to any of the foregoing.
+      </p>
+
+      <h2><span class="num">07</span>No professional advice</h2>
+      <p>
+        The Software and anything it produces are provided for general purposes only and do not
+        constitute legal, financial, tax, accounting, medical, psychological, safety, engineering,
+        regulatory, or other professional advice. Do not rely on the Software for any decision that
+        would normally warrant professional advice. Always consult a qualified professional.
+      </p>
+
+      <h2><span class="num">08</span>Security, keys, and sensitive data</h2>
+      <p>
+        You are responsible for the secure handling of any credentials, API keys, tokens, secrets,
+        private data, personal data, or regulated data that you provide to or process with the
+        Software. You understand that LLM providers, downstream tools, and any component you
+        configure may receive, log, cache, or retain such data according to their own policies.
+        Do not provide the Software with data you are not authorized to share with those
+        downstream systems.
+      </p>
+
+      <h2><span class="num">09</span>Indemnification</h2>
+      <p>
+        To the maximum extent permitted by law, you agree to defend, indemnify, and hold harmless
+        the authors, maintainers, and contributors of the Software from and against any claim,
+        demand, loss, liability, damage, cost, or expense (including reasonable attorneys&rsquo; fees)
+        arising out of or related to: (a) your use of the Software; (b) your violation of these
+        terms or of the License; (c) your violation of any law or the rights of any third party;
+        or (d) any content, data, configuration, or action you provided to, configured in, or
+        caused the Software to take.
+      </p>
+
+      <h2><span class="num">10</span>Changes to the Software and to these terms</h2>
+      <p>
+        The Software may change at any time, and may be modified, deprecated, renamed, restructured,
+        or discontinued without notice. These terms may be updated at any time by posting a revised
+        version on this website. Your continued use of the Software after changes take effect
+        constitutes your acceptance of the revised terms. If you do not agree to a revised version,
+        stop using the Software.
+      </p>
+
+      <h2><span class="num">11</span>Severability and entire agreement</h2>
+      <p>
+        If any provision of these terms is held to be invalid or unenforceable, that provision
+        shall be enforced to the maximum extent permitted, and the remaining provisions shall
+        remain in full force and effect. These terms, together with the applicable License and
+        any Direct License, constitute the entire agreement between you and the authors and
+        maintainers regarding your use of the Software, and supersede any prior or contemporaneous
+        understandings on that subject.
+      </p>
+
+      <h2><span class="num">12</span>Contact</h2>
+      <p>
+        Questions about these terms or the License can be sent to
+        <a href="mailto:info@alduin.app">info@alduin.app</a>. Sending an email
+        does not create any confidential, fiduciary, or professional relationship, and no response
+        is guaranteed.
+      </p>
+
+      <hr class="divider" />
+      <p class="muted">
+        By using the Software, you confirm that you have read, understood, and agreed to these
+        terms and to the License.
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="foot-inner">
+      <span>&copy; 2026 Alduin</span>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="/">Home</a>
+        <a href="https://github.com/BasementAnon/alduin" target="_blank" rel="noopener">GitHub</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    const nav = document.getElementById('nav');
+    const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 4);
+    document.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B0B0C" />
+  <title>Alduin — Separate thinking from doing.</title>
+  <meta name="description" content="Alduin is an open-source AI agent orchestrator. A planner decides what to do, specialized executors do it, and cheap classifiers route the easy stuff away from the expensive path." />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Alduin — Separate thinking from doing." />
+  <meta property="og:description" content="A next-generation multi-model AI agent orchestrator. Recursive sub-orchestration, real token budgeting, MCP-compatible plugins." />
+  <meta property="og:url" content="https://alduin.app" />
+  <meta property="og:site_name" content="Alduin" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Alduin — Separate thinking from doing." />
+  <meta name="twitter:description" content="A next-generation multi-model AI agent orchestrator." />
+
+  <!-- Favicon: inline SVG "A" mark -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230B0B0C'/><path d='M20 46 L32 18 L44 46 M25 38 H39' stroke='%23F2E7D5' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #FBFAF6;
+      --surface: #F3F0E8;
+      --surface-2: #EDE9DE;
+      --ink: #0B0B0C;
+      --ink-2: #2A2A2C;
+      --muted: #6B6B6E;
+      --border: rgba(11, 11, 12, 0.10);
+      --border-soft: rgba(11, 11, 12, 0.06);
+      --accent: #D84315;
+      --accent-ink: #FFFFFF;
+      --code-bg: #0B0B0C;
+      --code-ink: #EDE9DE;
+      --code-muted: #7C7C80;
+      --code-accent: #F2B066;
+      --code-string: #8AC48A;
+      --code-key: #BFC8FF;
+      --radius: 14px;
+      --radius-lg: 22px;
+      --shadow-sm: 0 1px 2px rgba(11,11,12,0.04);
+      --shadow-md: 0 10px 30px -12px rgba(11,11,12,0.18), 0 2px 6px rgba(11,11,12,0.04);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+
+    .container {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ---------- Nav ---------- */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: color-mix(in srgb, var(--bg) 82%, transparent);
+      backdrop-filter: saturate(140%) blur(14px);
+      -webkit-backdrop-filter: saturate(140%) blur(14px);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    .nav.scrolled { border-bottom-color: var(--border-soft); }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 66px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      font-size: 17px;
+    }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--ink); color: #F2E7D5;
+      display: inline-grid; place-items: center;
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 600;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-links a {
+      padding: 8px 12px;
+      font-size: 14.5px;
+      color: var(--ink-2);
+      border-radius: 8px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .nav-links a:hover { background: var(--surface); color: var(--ink); }
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: #FFF !important;
+      font-weight: 500;
+      font-size: 14px;
+      margin-left: 6px;
+    }
+    .nav-cta:hover { background: #1c1c1f; }
+
+    /* ---------- Hero ---------- */
+    .hero {
+      position: relative;
+      padding: 72px 0 96px;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 55% at 80% 0%, rgba(216,67,21,0.08), transparent 60%),
+        radial-gradient(ellipse 50% 40% at 10% 20%, rgba(11,11,12,0.05), transparent 55%);
+      pointer-events: none;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 64px;
+      align-items: center;
+      position: relative;
+    }
+    .hero-grid > * { min-width: 0; }
+    .hero-copy { min-width: 0; }
+    .hero-visual { min-width: 0; max-width: 100%; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 11px 5px 7px;
+      font-size: 13px;
+      color: var(--ink-2);
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      margin-bottom: 22px;
+    }
+    .eyebrow .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(216,67,21,0.14);
+    }
+    .hero h1 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(38px, 6.2vw, 78px);
+      line-height: 1.04;
+      letter-spacing: -0.025em;
+      margin: 0 0 22px;
+      color: var(--ink);
+      word-break: break-word;
+      overflow-wrap: break-word;
+    }
+    .hero h1 em {
+      font-style: italic;
+      font-weight: 400;
+      color: var(--accent);
+    }
+    .hero-sub {
+      font-size: clamp(16.5px, 1.35vw, 18.5px);
+      color: var(--ink-2);
+      max-width: 540px;
+      line-height: 1.55;
+      margin: 0 0 32px;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 46px;
+      padding: 0 20px;
+      border-radius: 999px;
+      font-weight: 500;
+      font-size: 15px;
+      transition: transform 0.08s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      background: var(--ink);
+      color: #FFF;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-primary:hover { background: #1c1c1f; box-shadow: var(--shadow-md); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--surface); }
+    .btn svg { width: 16px; height: 16px; }
+
+    .meta-row {
+      margin-top: 22px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+    .meta-row .sep { opacity: 0.4; }
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      padding: 5px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      color: var(--ink-2);
+      white-space: nowrap;
+    }
+
+    /* ---------- Quickstart card ---------- */
+    .quickstart {
+      position: relative;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      border: 1px solid #1a1a1d;
+      isolation: isolate;
+    }
+    .quickstart::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 50% at 50% 0%, rgba(242,176,102,0.10), transparent 55%),
+        radial-gradient(ellipse 40% 40% at 100% 100%, rgba(216,67,21,0.10), transparent 60%);
+      z-index: 0;
+    }
+    .quickstart-head {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 14px 18px;
+      border-bottom: 1px solid #1f1f22;
+      background: linear-gradient(180deg, #0F0F11 0%, #0D0D0F 100%);
+    }
+    .quickstart-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #C9BFA9;
+    }
+    .quickstart-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(216,67,21,0.20), 0 0 8px rgba(216,67,21,0.35);
+    }
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 11px 6px 9px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      color: #D6CDB8;
+      background: #17171A;
+      border: 1px solid #26262A;
+      transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease, transform 0.08s ease;
+      cursor: pointer;
+    }
+    .copy-btn:hover { background: #1D1D20; color: #F2E7D5; border-color: #32323A; }
+    .copy-btn:active { transform: translateY(1px); }
+    .copy-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .copy-icon-wrap {
+      position: relative;
+      width: 13px;
+      height: 13px;
+      display: inline-flex;
+    }
+    .copy-icon-wrap svg {
+      position: absolute;
+      inset: 0;
+      width: 13px;
+      height: 13px;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .copy-icon-wrap .check-icon {
+      opacity: 0;
+      transform: scale(0.6);
+      color: #94D59A;
+    }
+    .copy-btn.is-copied .copy-icon { opacity: 0; transform: scale(0.6); }
+    .copy-btn.is-copied .check-icon { opacity: 1; transform: scale(1); }
+    .copy-btn.is-copied { color: #94D59A; border-color: #2F4A33; background: #15221A; }
+    .copy-btn.is-copied:hover { background: #17261C; }
+    .copy-label { line-height: 1; }
+
+    .quickstart-code {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      padding: 22px 24px 24px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 13.5px;
+      line-height: 2;
+      overflow-x: auto;
+      white-space: pre;
+      color: #F2E7D5;
+    }
+    .quickstart-code .line { display: block; }
+    .quickstart-code .prompt {
+      color: var(--accent);
+      user-select: none;
+      margin-right: 12px;
+      font-weight: 500;
+    }
+    .quickstart-code .cmd { color: #F2E7D5; }
+
+    .quickstart-link {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 13px 16px;
+      font-size: 13px;
+      color: #A69C84;
+      background: linear-gradient(180deg, #0D0D0F 0%, #0B0B0D 100%);
+      border-top: 1px solid #1f1f22;
+      transition: color 0.14s ease, background 0.14s ease;
+      text-decoration: none;
+    }
+    .quickstart-link:hover { color: #F2E7D5; background: #101013; }
+    .quickstart-link svg {
+      width: 12px;
+      height: 12px;
+      transition: transform 0.16s ease;
+    }
+    .quickstart-link:hover svg { transform: translateX(2px); }
+
+    /* ---------- Trust strip ---------- */
+    .strip {
+      padding: 28px 0 8px;
+      border-top: 1px solid var(--border-soft);
+      border-bottom: 1px solid var(--border-soft);
+      background: color-mix(in srgb, var(--bg) 70%, var(--surface));
+    }
+    .strip-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 28px 48px;
+      padding: 10px 0 30px;
+      color: var(--muted);
+      font-size: 13.5px;
+      letter-spacing: 0.02em;
+    }
+    .strip-label {
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .strip-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      color: var(--ink-2);
+    }
+    .strip-item .pill {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11.5px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      color: var(--muted);
+    }
+
+    /* ---------- Section shell ---------- */
+    section.block {
+      padding: 96px 0;
+      position: relative;
+    }
+    .section-head {
+      max-width: 720px;
+      margin: 0 auto 56px;
+      text-align: center;
+    }
+    .section-eyebrow {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(32px, 3.6vw, 46px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      margin: 0 0 18px;
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--ink-2);
+      line-height: 1.6;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    /* ---------- Features grid ---------- */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .feature {
+      position: relative;
+      padding: 28px 26px 30px;
+      background: var(--bg);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .feature:hover {
+      transform: translateY(-2px);
+      border-color: var(--border);
+      box-shadow: var(--shadow-md);
+    }
+    .feature-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--surface);
+      display: grid; place-items: center;
+      margin-bottom: 18px;
+      color: var(--ink);
+      border: 1px solid var(--border-soft);
+    }
+    .feature-icon svg { width: 18px; height: 18px; }
+    .feature h3 {
+      margin: 0 0 8px;
+      font-size: 16.5px;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+      color: var(--ink);
+    }
+    .feature p {
+      margin: 0;
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+    .feature code {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      color: var(--ink-2);
+      background: var(--surface);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* ---------- Architecture diagram ---------- */
+    .arch-wrap {
+      margin-top: 64px;
+      padding: 40px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+    }
+    .arch {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 14px;
+      align-items: stretch;
+      font-size: 13px;
+    }
+    .arch-node {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 16px;
+      text-align: left;
+      position: relative;
+    }
+    .arch-node .label {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .arch-node h4 {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+    }
+    .arch-node p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .arch-node.is-accent h4 { color: var(--accent); }
+    .arch-arrow {
+      position: absolute;
+      right: -12px; top: 50%;
+      width: 14px; height: 1px;
+      background: var(--border);
+      transform: translateY(-50%);
+    }
+    .arch-arrow::after {
+      content: '';
+      position: absolute;
+      right: 0; top: -3px;
+      border: 3px solid transparent;
+      border-left-color: var(--border);
+    }
+    .arch-node:last-child .arch-arrow { display: none; }
+
+    /* ---------- CTA ---------- */
+    .cta {
+      margin: 96px auto;
+      max-width: 1180px;
+      padding: 0 24px;
+    }
+    .cta-card {
+      position: relative;
+      overflow: hidden;
+      background: var(--ink);
+      color: #F5F1E8;
+      border-radius: 24px;
+      padding: 72px 48px;
+      text-align: center;
+    }
+    .cta-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 55% 65% at 20% 100%, rgba(216,67,21,0.28), transparent 60%),
+        radial-gradient(ellipse 45% 55% at 80% 0%, rgba(242,176,102,0.12), transparent 60%);
+      pointer-events: none;
+    }
+    .cta-card h2 {
+      position: relative;
+      margin: 0 0 14px;
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 500;
+      font-size: clamp(30px, 3.4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #FFF;
+    }
+    .cta-card p {
+      position: relative;
+      margin: 0 auto 30px;
+      max-width: 560px;
+      color: #CCC5B6;
+      font-size: 16.5px;
+    }
+    .cta-card .cta-row { position: relative; justify-content: center; }
+    .cta-card .btn-primary {
+      background: var(--accent);
+    }
+    .cta-card .btn-primary:hover { background: #ed5524; }
+    .cta-card .btn-ghost {
+      color: #F5F1E8;
+      border-color: rgba(245,241,232,0.18);
+    }
+    .cta-card .btn-ghost:hover { background: rgba(245,241,232,0.06); }
+
+    /* ---------- Footer ---------- */
+    footer {
+      border-top: 1px solid var(--border-soft);
+      padding: 36px 0 48px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .foot-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+    }
+    .foot-links {
+      display: flex;
+      gap: 22px;
+    }
+    .foot-links a:hover { color: var(--ink); }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 980px) {
+      .hero { padding: 48px 0 64px; }
+      .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+      .features { grid-template-columns: repeat(2, 1fr); }
+      .arch { grid-template-columns: repeat(2, 1fr); }
+      .arch-arrow { display: none; }
+    }
+    @media (max-width: 620px) {
+      .nav-links a:not(.nav-cta) { display: none; }
+      section.block { padding: 72px 0; }
+      .hero { padding: 36px 0 56px; }
+      .hero h1 { font-size: clamp(34px, 10vw, 48px); }
+      .hero-sub { font-size: 16px; }
+      .features { grid-template-columns: 1fr; }
+      .arch { grid-template-columns: 1fr; }
+      .cta-card { padding: 52px 26px; border-radius: 18px; }
+      .arch-wrap { padding: 22px; }
+      .quickstart-code { font-size: 12px; padding: 18px 16px 20px; line-height: 1.9; }
+      .quickstart-head { padding: 12px 14px; }
+      .quickstart-label { font-size: 10.5px; letter-spacing: 0.16em; }
+      .quickstart-link { font-size: 12px; padding: 12px 14px; }
+      .copy-btn { font-size: 11.5px; padding: 5px 9px 5px 8px; }
+      .meta-row { flex-wrap: wrap; gap: 8px; }
+      .meta-pill { font-size: 11px; padding: 4px 9px; }
+    }
+
+    /* ---------- Fade-in on scroll ---------- */
+    .reveal { opacity: 0; transform: translateY(12px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ============== Nav ============== -->
+  <header class="nav" id="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">A</span>
+        <span>Alduin</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="https://github.com/BasementAnon/alduin#readme" target="_blank" rel="noopener">Features</a>
+        <a href="https://github.com/BasementAnon/alduin/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+        <a href="https://github.com/BasementAnon/alduin/tree/main/docs" target="_blank" rel="noopener">Docs</a>
+        <a class="nav-cta" href="https://github.com/BasementAnon/alduin" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <path d="M8 .2a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.3-.9-.8-1.1-.8-1.1-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.2 0-.2-.4-1 .1-2.2 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.2.1 2 .1 2.2.5.6.8 1.3.8 2.2 0 3.1-1.8 3.8-3.6 4 .3.3.5.7.5 1.5v2.2c0 .2.1.5.5.4A8 8 0 0 0 8 .2Z"/>
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ============== Hero ============== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-copy reveal">
+          <span class="eyebrow">
+            <span class="dot"></span>
+            v0.1 &middot; open source &middot; TypeScript
+          </span>
+          <h1>Separate <em>thinking</em> from <em>doing.</em></h1>
+          <p class="hero-sub">
+            Alduin is an open-source AI agent orchestrator. A planner model decides what to do.
+            Specialized executors do it. A cheap classifier routes the easy stuff away from
+            the expensive path &mdash; with real token budgets, recursive sub-orchestration,
+            and an MCP-compatible plugin system.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://github.com/BasementAnon/alduin/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">
+              Quickstart
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/BasementAnon/alduin/tree/main/docs" target="_blank" rel="noopener">
+              Read the docs
+            </a>
+          </div>
+          <div class="meta-row">
+            <span class="meta-pill">Node 22+</span>
+            <span class="meta-pill">macOS &middot; Linux &middot; Windows</span>
+            <span class="meta-pill">Open source</span>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal">
+          <div class="quickstart" role="region" aria-label="Quickstart commands">
+            <div class="quickstart-head">
+              <div class="quickstart-label">
+                <span class="quickstart-dot" aria-hidden="true"></span>
+                Quickstart
+              </div>
+              <button type="button" class="copy-btn" data-copy-target="#quickstart-code" aria-label="Copy all commands to clipboard">
+                <span class="copy-icon-wrap" aria-hidden="true">
+                  <svg class="copy-icon" viewBox="0 0 16 16" fill="none">
+                    <rect x="5" y="5" width="8.5" height="9" rx="1.6" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M3 10V3.6A1.6 1.6 0 0 1 4.6 2H10.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                  </svg>
+                  <svg class="check-icon" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="copy-label">Copy</span>
+              </button>
+            </div>
+<pre class="quickstart-code" id="quickstart-code"><code><span class="line"><span class="prompt">$</span> <span class="cmd">git clone https://github.com/BasementAnon/alduin.git</span></span>
+<span class="line"><span class="prompt">$</span> <span class="cmd">cd alduin</span></span>
+<span class="line"><span class="prompt">$</span> <span class="cmd">npm install</span></span>
+<span class="line"><span class="prompt">$</span> <span class="cmd">npm run build</span></span></code></pre>
+            <a class="quickstart-link" href="https://github.com/BasementAnon/alduin/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">
+              Read the full Quickstart guide
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== Trust strip ============== -->
+  <div class="strip">
+    <div class="container">
+      <div class="strip-label">Works with the models you already pay for</div>
+      <div class="strip-inner">
+        <span class="strip-item">Anthropic <span class="pill">Claude</span></span>
+        <span class="strip-item">OpenAI <span class="pill">GPT</span></span>
+        <span class="strip-item">DeepSeek</span>
+        <span class="strip-item">Ollama <span class="pill">local</span></span>
+        <span class="strip-item">OpenAI-compatible <span class="pill">any</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== Features ============== -->
+  <section class="block" id="features">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="section-eyebrow">What makes it different</div>
+        <h2 class="section-title">Built around one idea: planners shouldn't execute.</h2>
+        <p class="section-sub">
+          Most agents let the executing model decide whether to delegate, which means
+          delegation quietly gets skipped &mdash; 50 to 80% of the time. Alduin bakes the
+          split into the runtime.
+        </p>
+      </div>
+
+      <div class="features">
+        <div class="feature reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+              <circle cx="12" cy="12" r="4"/>
+            </svg>
+          </div>
+          <h3>Recursive sub-orchestration</h3>
+          <p>The orchestrator can spawn child orchestrators on cheaper models for subtasks, with a configurable depth guard and per-session toggle.</p>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7l9-4 9 4M3 17l9 4 9-4M3 12l9 4 9-4"/>
+            </svg>
+          </div>
+          <h3>Pre-classifier routing</h3>
+          <p>A cheap model classifies every incoming message. Simple code, research, or calendar tasks skip planning entirely &mdash; complex work gets full orchestration.</p>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+              <path d="M7 9h2M7 13h6M7 17h4M15 15l2 2 3-3"/>
+            </svg>
+          </div>
+          <h3>Real token budgeting</h3>
+          <p>Per-session, per-user, per-model daily limits with real tokenizers &mdash; Anthropic, OpenAI, Tiktoken. No character-count heuristics. Hard stops before the bill lands.</p>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16M4 12h16M4 17h10"/>
+              <circle cx="19" cy="17" r="2"/>
+            </svg>
+          </div>
+          <h3>Multi-model by default</h3>
+          <p>Mix Claude, GPT, DeepSeek, and local Ollama in one run. Pin versions explicitly. Fallback chains fire automatically on rate limits or timeouts.</p>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <h3>Policy, audit, and vault</h3>
+          <p>Per-skill and per-tool permissions, structured audit trails for every plan, and an encrypted vault for tokens &mdash; never written to disk unencrypted.</p>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="8" height="8" rx="2"/>
+              <rect x="13" y="4" width="8" height="8" rx="2"/>
+              <rect x="8" y="14" width="8" height="6" rx="2"/>
+            </svg>
+          </div>
+          <h3>MCP-compatible plugins</h3>
+          <p>Tools, skills, and connectors load through an MCP-compatible host. Ship a new skill as a YAML file and a function &mdash; no engine changes.</p>
+        </div>
+      </div>
+
+      <!-- Architecture diagram -->
+      <div class="arch-wrap reveal" id="architecture">
+        <div class="arch">
+          <div class="arch-node">
+            <div class="label">01 &middot; Route</div>
+            <h4>Pre-classifier</h4>
+            <p>Cheap model tags the message. Simple tasks skip the orchestrator entirely.</p>
+            <span class="arch-arrow" aria-hidden="true"></span>
+          </div>
+          <div class="arch-node is-accent">
+            <div class="label">02 &middot; Think</div>
+            <h4>Orchestrator</h4>
+            <p>Plans. Never executes. Emits structured JSON plans &mdash; and can recurse.</p>
+            <span class="arch-arrow" aria-hidden="true"></span>
+          </div>
+          <div class="arch-node">
+            <div class="label">03 &middot; Do</div>
+            <h4>Executors</h4>
+            <p>Zero conversation history. Run one step. Return a normalized result.</p>
+            <span class="arch-arrow" aria-hidden="true"></span>
+          </div>
+          <div class="arch-node">
+            <div class="label">04 &middot; Ship</div>
+            <h4>Renderer</h4>
+            <p>Channel-neutral payload &rarr; native messages, edits, streaming, files.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== CTA ============== -->
+  <div class="cta reveal">
+    <div class="cta-card">
+      <h2>Stop losing delegation to the model that's holding the tools.</h2>
+      <p>Clone the repo, point it at your models, and run your first orchestrated task in under five minutes.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/BasementAnon/alduin/blob/main/docs/QUICKSTART.md" target="_blank" rel="noopener">
+          Quickstart
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/BasementAnon/alduin/tree/main/docs" target="_blank" rel="noopener">Read the docs</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== Footer ============== -->
+  <footer>
+    <div class="container foot-inner">
+      <span>&copy; 2026 Alduin</span>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="https://github.com/BasementAnon/alduin" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/BasementAnon/alduin#readme" target="_blank" rel="noopener">Features</a>
+        <a href="https://github.com/BasementAnon/alduin/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener">Architecture</a>
+        <a href="/terms.html">Terms</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    // Nav border on scroll
+    const nav = document.getElementById('nav');
+    const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 4);
+    document.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    // Reveal on intersect
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        }
+      }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+    } else {
+      document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+    }
+
+    // Copy-to-clipboard for Quickstart block
+    document.querySelectorAll('.copy-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const sel = btn.getAttribute('data-copy-target');
+        const target = sel ? document.querySelector(sel) : null;
+        if (!target) return;
+        const cmds = Array.from(target.querySelectorAll('.cmd'))
+          .map((el) => el.textContent.trim())
+          .filter(Boolean)
+          .join('\n');
+        const done = () => {
+          btn.classList.add('is-copied');
+          const label = btn.querySelector('.copy-label');
+          const original = label ? label.textContent : null;
+          if (label) label.textContent = 'Copied';
+          btn.setAttribute('aria-label', 'Commands copied to clipboard');
+          setTimeout(() => {
+            btn.classList.remove('is-copied');
+            if (label && original) label.textContent = original;
+            btn.setAttribute('aria-label', 'Copy all commands to clipboard');
+          }, 1800);
+        };
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(cmds);
+            done();
+            return;
+          }
+        } catch (err) { /* fall through to fallback */ }
+        // Fallback for non-secure contexts / older browsers
+        const ta = document.createElement('textarea');
+        ta.value = cmds;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) { /* noop */ }
+        ta.remove();
+      });
+    });
+  </script>
+</body>
+</html>
