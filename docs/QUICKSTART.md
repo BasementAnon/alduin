@@ -9,13 +9,22 @@ Get Alduin running in under 5 minutes.
 - At least one provider API key (Anthropic, OpenAI, or DeepSeek)
 - Optional: [Ollama](https://ollama.com) for local models
 
+## 0. One-time PATH setup
+
+Add this line to your shell config (`~/.zshrc` on macOS, `~/.bashrc` on Linux):
+
+```bash
+export PATH="./node_modules/.bin:$PATH"
+```
+
+Then reload your shell (`source ~/.zshrc` or open a new terminal). This lets you run `alduin` directly from any npm project — you only need to do this once.
+
 ## 1. Clone, install, and build
 
 ```bash
 git clone https://github.com/BasementAnon/alduin.git
 cd alduin
 npm install
-npm link              # makes the `alduin` command available globally
 alduin build
 ```
 
@@ -101,26 +110,26 @@ alduin/
 
 ## Common commands
 
-After running `npm link` (or `npm install -g`), use `alduin <command>` for everything:
+Use `alduin <command>` from the project directory:
 
 ```bash
-alduin init                    # first-run wizard
-alduin config                  # view/edit configuration
-alduin doctor                  # diagnose config issues
-alduin models sync             # probe provider /models APIs
-alduin models diff             # compare config pins vs. catalog
-alduin models upgrade          # propose new pins, run smoke tests
-alduin skills list             # list available skills
-alduin skills run <id>         # execute a skill
-alduin build                   # compile TypeScript to dist/
-alduin dev                     # start in development mode
-alduin dev:telegram            # start with Telegram adapter
-alduin test                    # run test suite
-alduin test:coverage           # run tests with coverage
-alduin lint                    # type-check the project
-alduin clean                   # remove compiled output
-alduin config:generate         # regenerate config schema
-alduin config:check            # verify schema is up to date
+alduin init                # first-run wizard
+alduin config              # view/edit configuration
+alduin doctor              # diagnose config issues
+alduin models sync         # probe provider /models APIs
+alduin models diff         # compare config pins vs. catalog
+alduin models upgrade      # propose new pins, run smoke tests
+alduin skills list         # list available skills
+alduin skills run <id>     # execute a skill
+alduin build               # compile TypeScript to dist/
+alduin dev                 # start in development mode
+alduin dev:telegram        # start with Telegram adapter
+alduin test                # run test suite
+alduin test:coverage       # run tests with coverage
+alduin lint                # type-check the project
+alduin clean               # remove compiled output
+alduin config:generate     # regenerate config schema
+alduin config:check        # verify schema is up to date
 ```
 
 ## Environment variable overrides

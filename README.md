@@ -62,11 +62,18 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 > **Full setup guide:** [docs/QUICKSTART.md](docs/QUICKSTART.md)
 
+First, add `./node_modules/.bin` to your PATH (one-time setup — see [QUICKSTART](docs/QUICKSTART.md#0-one-time-path-setup)):
+
+```bash
+echo 'export PATH="./node_modules/.bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+```
+
+Then:
+
 ```bash
 npm install
-npm link                 # makes the `alduin` command available globally
 alduin build
-alduin init              # interactive first-run wizard
+alduin init          # interactive first-run wizard
 ```
 
 The wizard (built with @clack/prompts, Ctrl-C at any step is safe):

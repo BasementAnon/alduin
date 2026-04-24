@@ -6,8 +6,8 @@
  * hint table.
  *
  * Usage:
- *   alduin config:generate            # write the file
- *   alduin config:check              # exit non-zero if file is out of date
+ *   alduin config:generate        # write the file
+ *   alduin config:check          # exit non-zero if file is out of date
  *
  * How it works:
  *   1. Converts alduinConfigSchema → JSON Schema (Draft-07) via zod-to-json-schema.

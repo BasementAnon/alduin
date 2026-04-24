@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build:sdk": "npm run build --workspace=@alduin/plugin-sdk",
-    "build": "npm run build:sdk && tsc",
+    "build": "npm run build:sdk && tsc && chmod +x dist/cli.js && ln -sf ../../dist/cli.js node_modules/.bin/alduin",
     "dev": "tsx src/cli.ts",
     "dev:telegram": "tsx src/dev-telegram.ts",
     "init": "tsx src/cli.ts init",
@@ -19,7 +19,8 @@
     "lint": "npm run build:sdk && tsc --noEmit",
     "clean": "rm -rf dist packages/plugin-sdk/dist",
     "config:generate": "tsx --tsconfig tsconfig.scripts.json scripts/generate-schema.ts",
-    "config:check": "tsx --tsconfig tsconfig.scripts.json scripts/generate-schema.ts --check"
+    "config:check": "tsx --tsconfig tsconfig.scripts.json scripts/generate-schema.ts --check",
+    "postinstall": "test -f dist/cli.js && chmod +x dist/cli.js && mkdir -p node_modules/.bin && ln -sf ../../dist/cli.js node_modules/.bin/alduin || true"
   },
   "engines": {
     "node": ">=22.0.0"
