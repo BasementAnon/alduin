@@ -41,6 +41,8 @@ export const memoryConfigSchema = z.object({
   cold_embedding_model: z.string().optional(),
   /** Cosine similarity threshold for cold memory retrieval. */
   cold_similarity_threshold: z.number().min(0).max(1).optional(),
+  /** Maximum number of entries in cold memory before oldest are evicted. */
+  cold_max_entries: z.number().int().positive().optional(),
   /**
    * When true, also redact emails and phone numbers when promoting turns to
    * warm/cold memory. Secrets (API keys, JWTs, etc.) are always redacted.

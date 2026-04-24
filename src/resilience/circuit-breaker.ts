@@ -36,10 +36,8 @@ export class CircuitBreaker {
   recordSuccess(): void {
     if (this.state === 'half_open') {
       this.state = 'closed';
-      this.failureCount = 0;
-    } else if (this.state === 'closed') {
-      this.failureCount = 0;
     }
+    this.failureCount = 0;
   }
 
   /**

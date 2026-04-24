@@ -297,19 +297,16 @@ export async function runPickModels(
     log.warn(
       'No models found in the catalog for your configured providers. Using built-in defaults.'
     );
-    const fallbackModel =
-      configuredProviderIds.includes('anthropic')
-        ? 'anthropic/claude-sonnet-4-6'
-        : configuredProviderIds.includes('openai')
-          ? 'openai/gpt-4.1'
-          : `${configuredProviderIds[0] ?? 'ollama'}/default`;
 
-    const cheapModel =
-      configuredProviderIds.includes('anthropic')
-        ? 'anthropic/claude-haiku-4'
-        : configuredProviderIds.includes('openai')
-          ? 'openai/gpt-4.1-mini'
-          : fallbackModel;
+    // Pick fallback models only from the user's configured providers
+    const capablePrefs = preferenceList('capable');
+    const cheapPrefs = preferenceList('cheap');
+    const configuredCapable = capablePrefs.find((m) => configuredProviderIds.includes(providerOf(m)));
+    const configuredCheap = cheapPrefs.find((m) => configuredProviderIds.includes(providerOf(m)));
+
+    const fallbackModel = configuredCapable
+      ?? `${configuredProviderIds[0] ?? 'ollama'}/default`;
+    const cheapModel = configuredCheap ?? fallbackModel;
 
     return {
       assignments: {

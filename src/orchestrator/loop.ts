@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type { AlduinConfig } from '../config/types.js';
 import type { ConversationTurn, LLMMessage } from '../types/llm.js';
 import type {
@@ -71,7 +71,7 @@ export class OrchestratorLoop {
     orchestration?: OrchestrationContext,
     recursionGuard?: RecursionGuard,
   ): Promise<{ response: string; trace: TaskTrace }> {
-    const taskId = uuidv4();
+    const taskId = randomUUID();
     this.traceLogger.startTrace(taskId, userMessage);
 
     // Create a turn-scoped recursion guard if one wasn't provided (top-level call)
@@ -319,7 +319,7 @@ export class OrchestratorLoop {
           : 60000;
 
         const task: ExecutorTask = {
-          id: uuidv4(),
+          id: randomUUID(),
           executor_name: step.executor,
           instruction: step.instruction,
           input_data: inputData,

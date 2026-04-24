@@ -77,6 +77,7 @@ export class MessageClassifier {
     if (!result.ok) {
       // Return a default classification rather than propagating the error,
       // since a classifier failure is recoverable — just route to orchestrator.
+      console.warn(`[Classifier] LLM call failed (${result.error.type}): ${result.error.message} — routing to orchestrator`);
       return ok({ ...DEFAULT_CLASSIFICATION, reasoning: result.error.message });
     }
 

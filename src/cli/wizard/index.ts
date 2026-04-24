@@ -314,7 +314,7 @@ export async function runInitWizard(): Promise<void> {
     // Seed owner role
     commitOwner(fullState, config);
 
-    // Write env var stubs for provider keys
+    // Write all secrets to .env in one pass (deferred from steps 2 and 5)
     for (const p of fullState.providerSetup.providers) {
       if (p.apiKey) {
         const envKey = p.id === 'anthropic' ? 'ANTHROPIC_API_KEY'
@@ -324,6 +324,12 @@ export async function runInitWizard(): Promise<void> {
           : `${p.id.toUpperCase()}_API_KEY`;
         writeEnvVar(envKey, p.apiKey);
       }
+    }
+    if (fullState.channel.botToken) {
+      writeEnvVar('TELEGRAM_BOT_TOKEN', fullState.channel.botToken);
+    }
+    if (fullState.channel.webhookSecret) {
+      writeEnvVar('ALDUIN_WEBHOOK_SECRET', fullState.channel.webhookSecret);
     }
 
     // Audit entry

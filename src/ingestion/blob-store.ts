@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { openSqlite } from '../db/open.js';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type { AttachmentRef } from '../channels/adapter.js';
 
 interface AttachmentRow {
@@ -99,7 +99,7 @@ export class BlobStore {
     const yyyy = now.getUTCFullYear().toString();
     const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
     const dd = String(now.getUTCDate()).padStart(2, '0');
-    const attachmentId = uuidv4();
+    const attachmentId = randomUUID();
     const ext = extForMime(mime);
 
     const dir = join(this.blobsDir, yyyy, mm, dd);

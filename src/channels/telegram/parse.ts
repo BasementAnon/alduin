@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type { Update, Message } from 'grammy/types';
 import type { NormalizedEvent, AttachmentRef, SentMessageRef } from '../adapter.js';
 import type { IngestionPipeline, ChannelDownloadConfig } from '../../ingestion/pipeline.js';
@@ -139,7 +139,7 @@ function makeAttachmentStub(
   bytes: number
 ): AttachmentRef {
   return {
-    attachment_id: uuidv4(),
+    attachment_id: randomUUID(),
     kind,
     mime,
     bytes,

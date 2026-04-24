@@ -212,11 +212,20 @@ export function buildProvidersConfig(answers: ProviderAnswers): ProvidersConfigO
 
 // ── Vault writes ──────────────────────────────────────────────────────────────
 
-/** Stored vault scopes for cleanup on Ctrl-C. */
+/**
+ * Stored vault scopes for cleanup on Ctrl-C.
+ * Centralized: all wizard steps (providers, channel, etc.) push here
+ * so Ctrl-C cleanup removes everything written during the incomplete run.
+ */
 const writtenVaultScopes: string[] = [];
 
 export function getWrittenVaultScopes(): string[] {
   return [...writtenVaultScopes];
+}
+
+/** Register additional vault scopes for Ctrl-C cleanup (used by channel step). */
+export function trackVaultScope(scope: string): void {
+  writtenVaultScopes.push(scope);
 }
 
 export function writeProviderKeysToVault(

@@ -66,6 +66,24 @@ export class TraceLogger {
     return this.traces.get(taskId);
   }
 
+  /** Iterate over all stored traces (completed and in-progress). */
+  getAllTraces(): IterableIterator<TaskTrace> {
+    return this.traces.values();
+  }
+
+  /** Remove completed traces older than `maxAgeMs` to prevent unbounded growth. */
+  pruneOlderThan(maxAgeMs: number): number {
+    const cutoff = Date.now() - maxAgeMs;
+    let pruned = 0;
+    for (const [taskId, trace] of this.traces) {
+      if (trace.completed_at && trace.completed_at.getTime() < cutoff) {
+        this.traces.delete(taskId);
+        pruned++;
+      }
+    }
+    return pruned;
+  }
+
   /**
    * Format a one-line summary of a trace's executor events.
    *

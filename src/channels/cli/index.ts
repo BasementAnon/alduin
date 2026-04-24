@@ -1,5 +1,5 @@
 import readline from 'node:readline';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type {
   ChannelAdapter,
   ChannelCapabilities,
@@ -71,7 +71,7 @@ export class CliAdapter implements ChannelAdapter {
           user_id: this.userId,
           thread_id: this.threadId,
           text: line,
-          message_id: uuidv4(),
+          message_id: randomUUID(),
         },
       };
       this.eventHandler(event);
@@ -94,7 +94,7 @@ export class CliAdapter implements ChannelAdapter {
     console.log(`\nalduin> ${payload.text}\n`);
     this.rl?.prompt();
     return {
-      message_id: uuidv4(),
+      message_id: randomUUID(),
       channel: 'cli',
       thread_id: this.threadId,
     };

@@ -111,10 +111,10 @@ export class WarmMemory {
   }
 
   private updateTokenCount(): void {
-    // Use a stable model for counting — the warm summary is model-agnostic
-    this.summaryTokens = this.tokenCounter.countTokens(
-      this.summary,
-      'openai/gpt-4.1'
-    );
+    // Use the configured classifier model for counting — it's always present
+    // and gives a reasonable token estimate regardless of actual model.
+    const classifierExecutor = this.config.executors[this.config.routing.classifier_model];
+    const countModel = classifierExecutor?.model ?? this.config.orchestrator.model;
+    this.summaryTokens = this.tokenCounter.countTokens(this.summary, countModel);
   }
 }

@@ -18,16 +18,20 @@ const DEFAULT_SIMILARITY_THRESHOLD = 0.7;
  *   - Local: ollama/nomic-embed-text via fetch to /api/embed
  * The rest of the store/search interface can remain unchanged.
  */
+const DEFAULT_MAX_ENTRIES = 1000;
+
 export class ColdMemory {
   private entries: ColdEntry[] = [];
   private embeddingModel: string;
   private similarityThreshold: number;
+  private maxEntries: number;
 
   constructor(_providerRegistry: unknown, config: AlduinConfig) {
     this.embeddingModel =
       config.memory?.cold_embedding_model ?? 'ollama/nomic-embed-text';
     this.similarityThreshold =
       config.memory?.cold_similarity_threshold ?? DEFAULT_SIMILARITY_THRESHOLD;
+    this.maxEntries = config.memory?.cold_max_entries ?? DEFAULT_MAX_ENTRIES;
   }
 
   /**
@@ -41,6 +45,11 @@ export class ColdMemory {
   ): void {
     const embedding = this.generateEmbedding(summary);
     this.entries.push({ sessionId, summary, embedding, metadata });
+
+    // Evict oldest entries when capacity is exceeded
+    while (this.entries.length > this.maxEntries) {
+      this.entries.shift();
+    }
   }
 
   /**

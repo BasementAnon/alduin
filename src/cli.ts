@@ -299,6 +299,10 @@ Type /help for commands, or start chatting.
   let sessionCost = 0;
   let taskCount = 0;
 
+  // Prune completed traces older than 1 hour every 50 tasks to prevent memory leak
+  const TRACE_MAX_AGE_MS = 60 * 60 * 1000;
+  const TRACE_PRUNE_INTERVAL = 50;
+
   // REPL
   const rl = readline.createInterface({
     input: process.stdin,
@@ -440,6 +444,11 @@ Commands:
       // Accumulate session stats
       sessionCost += cost;
       taskCount++;
+
+      // Periodically prune old traces to bound memory usage
+      if (taskCount % TRACE_PRUNE_INTERVAL === 0) {
+        traceLogger.pruneOlderThan(TRACE_MAX_AGE_MS);
+      }
 
       // Budget warning
       const budgetCheck = budgetTracker.checkBudget(config.orchestrator.model);

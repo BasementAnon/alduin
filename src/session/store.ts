@@ -15,20 +15,25 @@ interface SessionRow {
   policy_overrides: string | null; // JSON
 }
 
-function rowToSession(row: SessionRow): Session {
-  return {
-    session_id: row.session_id,
-    channel: row.channel,
-    external_thread_id: row.external_thread_id,
-    external_user_ids: JSON.parse(row.external_user_ids) as string[],
-    group_session_id: row.group_session_id ?? undefined,
-    tenant_id: row.tenant_id,
-    created_at: row.created_at,
-    last_active_at: row.last_active_at,
-    policy_overrides: row.policy_overrides
-      ? (JSON.parse(row.policy_overrides) as PolicyOverrides)
-      : undefined,
-  };
+function rowToSession(row: SessionRow): Session | null {
+  try {
+    return {
+      session_id: row.session_id,
+      channel: row.channel,
+      external_thread_id: row.external_thread_id,
+      external_user_ids: JSON.parse(row.external_user_ids) as string[],
+      group_session_id: row.group_session_id ?? undefined,
+      tenant_id: row.tenant_id,
+      created_at: row.created_at,
+      last_active_at: row.last_active_at,
+      policy_overrides: row.policy_overrides
+        ? (JSON.parse(row.policy_overrides) as PolicyOverrides)
+        : undefined,
+    };
+  } catch {
+    console.warn(`[SessionStore] Malformed JSON in session row "${row.session_id}", skipping`);
+    return null;
+  }
 }
 
 const SCHEMA = `
@@ -67,7 +72,7 @@ export class SessionStore {
         'SELECT * FROM sessions WHERE channel = ? AND external_thread_id = ?'
       )
       .get(channel, externalThreadId);
-    return row ? rowToSession(row) : null;
+    return row ? rowToSession(row) ?? null : null;
   }
 
   /** Look up a session by its primary key */
@@ -75,7 +80,7 @@ export class SessionStore {
     const row = this.db
       .prepare<[string], SessionRow>('SELECT * FROM sessions WHERE session_id = ?')
       .get(sessionId);
-    return row ? rowToSession(row) : null;
+    return row ? rowToSession(row) ?? null : null;
   }
 
   /** Persist a new session */

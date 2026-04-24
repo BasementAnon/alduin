@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type { AlduinConfig } from '../config/types.js';
 import type { ExecutorTask } from '../executor/types.js';
 import type { PolicyVerdict } from '../auth/policy.js';
@@ -100,7 +100,7 @@ export class PipelineEngine {
 
         const executorConfig = this.config.executors[step.executor];
         const task: ExecutorTask = {
-          id: uuidv4(),
+          id: randomUUID(),
           executor_name: step.executor,
           instruction,
           max_tokens: executorConfig?.max_tokens ?? 4000,

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import Database from 'better-sqlite3';
 import { openSqlite } from '../db/open.js';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
 /** Event kinds emitted by executors during task execution */
 export type ExecutorEventKind =
@@ -56,7 +56,7 @@ export class AlduinEventBus {
    * Publish an event: persist to SQLite and emit in-process.
    */
   publish(event: ExecutorEvent): void {
-    const id = uuidv4();
+    const id = randomUUID();
     this.db
       .prepare(
         'INSERT INTO events (id, session_id, task_id, step_index, kind, data, emitted_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -123,14 +123,21 @@ export class AlduinEventBus {
         .all(sessionId);
     }
 
-    return rows.map((row) => ({
-      task_id: row.task_id,
-      session_id: row.session_id,
-      step_index: row.step_index,
-      kind: row.kind as ExecutorEventKind,
-      data: JSON.parse(row.data) as unknown,
-      emitted_at: row.emitted_at,
-    }));
+    return rows.reduce<ExecutorEvent[]>((events, row) => {
+      try {
+        events.push({
+          task_id: row.task_id,
+          session_id: row.session_id,
+          step_index: row.step_index,
+          kind: row.kind as ExecutorEventKind,
+          data: JSON.parse(row.data) as unknown,
+          emitted_at: row.emitted_at,
+        });
+      } catch {
+        console.warn(`[EventBus] Skipping event with malformed JSON data (session=${row.session_id}, task=${row.task_id})`);
+      }
+      return events;
+    }, []);
   }
 
   /** Number of persisted events for a session */

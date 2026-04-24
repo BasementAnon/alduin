@@ -15,7 +15,8 @@ import { confirm, log, multiselect, note, password, select, spinner, text } from
 import { randomBytes } from 'node:crypto';
 import type { CredentialVault } from '../../../secrets/vault.js';
 import type { ChannelsConfig, TelegramChannelConfig } from '../../../config/schema/index.js';
-import { guard, writeEnvVar } from '../helpers.js';
+import { guard } from '../helpers.js';
+import { trackVaultScope } from './providers.js';
 import type { ChannelAnswers } from '../types.js';
 
 // ── Vault scope keys ──────────────────────────────────────────────────────────
@@ -96,11 +97,9 @@ export function writeChannelTokensToVault(
   vault.transaction(() => {
     if (answers.botToken) {
       vault.set(VAULT_SCOPE_TELEGRAM_TOKEN, answers.botToken);
-      writeEnvVar('TELEGRAM_BOT_TOKEN', answers.botToken);
     }
     if (answers.webhookSecret) {
       vault.set(VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET, answers.webhookSecret);
-      writeEnvVar('ALDUIN_WEBHOOK_SECRET', answers.webhookSecret);
     }
   });
 }
@@ -155,8 +154,9 @@ export async function runChannelSetup(vault: CredentialVault): Promise<ChannelAn
       s.stop(`Token valid — bot username: @${result.username}`);
       validToken = true;
 
-      // Write to vault immediately
+      // Write to vault immediately (tracked for Ctrl-C cleanup)
       vault.set(VAULT_SCOPE_TELEGRAM_TOKEN, answers.botToken);
+      trackVaultScope(VAULT_SCOPE_TELEGRAM_TOKEN);
     } else {
       s.stop(`Token validation failed: ${result.error}`);
       const retry = guard(
@@ -168,6 +168,7 @@ export async function runChannelSetup(vault: CredentialVault): Promise<ChannelAn
       if (!retry) {
         log.warn('Continuing with unvalidated token. Telegram may not work.');
         vault.set(VAULT_SCOPE_TELEGRAM_TOKEN, answers.botToken);
+        trackVaultScope(VAULT_SCOPE_TELEGRAM_TOKEN);
         validToken = true;
       }
     }
@@ -229,9 +230,9 @@ export async function runChannelSetup(vault: CredentialVault): Promise<ChannelAn
       answers.webhookSecret = customSecret.trim();
     }
 
-    // Write webhook secret to vault
+    // Write webhook secret to vault (tracked for Ctrl-C cleanup)
     vault.set(VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET, answers.webhookSecret);
-    writeEnvVar('ALDUIN_WEBHOOK_SECRET', answers.webhookSecret);
+    trackVaultScope(VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET);
   }
 
   // Security: allowed_user_ids
@@ -279,10 +280,7 @@ export async function runChannelSetup(vault: CredentialVault): Promise<ChannelAn
     'BotFather Security Checklist'
   );
 
-  // Write env var for the bot token
-  if (answers.botToken) {
-    writeEnvVar('TELEGRAM_BOT_TOKEN', answers.botToken);
-  }
+  // .env writes are deferred to the final commit step (wizard/index.ts step 9)
 
   return answers;
 }

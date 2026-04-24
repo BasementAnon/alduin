@@ -163,6 +163,16 @@ export class BudgetTracker {
     return tracker;
   }
 
+  /** Return the per-model limit (if set), or the global daily limit. */
+  getLimitForModel(model: string): number {
+    return this.config.per_model_limits?.[model] ?? this.config.daily_limit_usd;
+  }
+
+  /** Return the global daily limit in USD. */
+  getDailyLimitUsd(): number {
+    return this.config.daily_limit_usd;
+  }
+
   private totalCost(): number {
     let total = 0;
     for (const usage of this.perModel.values()) {
@@ -192,12 +202,9 @@ export class BudgetGuard {
     if (!allowed) {
       const summary = this.tracker.getDailySummary();
       const spent = summary.per_model.get(model)?.cost ?? summary.total_cost;
-      const limit =
-        this.tracker['config'].per_model_limits?.[model] ??
-        this.tracker['config'].daily_limit_usd;
+      const limit = this.tracker.getLimitForModel(model);
       return err({ model, limit, spent });
     }
-    void remaining_usd; // acknowledged but not returned in the ok branch
     return ok({ warning });
   }
 

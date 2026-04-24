@@ -50,27 +50,12 @@ export class UsageReporter {
     let total_output = 0;
     let total_tasks = 0;
 
-    // Access all traces via the private map — we walk completed traces only
-    const allTraces = (this.traceLogger as unknown as { traces: Map<string, unknown> }).traces;
-    for (const trace of allTraces.values()) {
-      const t = trace as {
-        completed_at?: Date;
-        events: Array<{
-          event_type: string;
-          data: {
-            executor?: string;
-            model?: string;
-            tokens_in?: number;
-            tokens_out?: number;
-            cost_usd?: number;
-          };
-        }>;
-      };
-
-      if (!t.completed_at) continue;
+    // Walk completed traces to build per-executor breakdown
+    for (const trace of this.traceLogger.getAllTraces()) {
+      if (!trace.completed_at) continue;
       total_tasks++;
 
-      for (const event of t.events) {
+      for (const event of trace.events) {
         if (event.event_type !== 'executor_completed') continue;
 
         const executor = event.data.executor ?? 'unknown';
@@ -96,8 +81,7 @@ export class UsageReporter {
       }
     }
 
-    const daily_limit = (this.budgetTracker as unknown as { config: { daily_limit_usd: number } })
-      .config.daily_limit_usd;
+    const daily_limit = this.budgetTracker.getDailyLimitUsd();
     const budget_pct_used =
       daily_limit > 0 ? (summary.total_cost / daily_limit) * 100 : 0;
 

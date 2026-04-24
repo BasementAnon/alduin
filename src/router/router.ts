@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type { AlduinConfig } from '../config/types.js';
 import type { ConversationTurn } from '../types/llm.js';
 import type { TaskTrace } from '../trace/types.js';
@@ -86,7 +86,7 @@ export class Router {
     }
 
     // Direct dispatch — skip the orchestrator entirely
-    return this.directDispatch(userMessage, classification.suggested_executor, verdict);
+    return this.directDispatch(userMessage, classification.suggested_executor, verdict, conversationHistory);
   }
 
   /**
@@ -98,20 +98,22 @@ export class Router {
   private async directDispatch(
     userMessage: string,
     executorName: string,
-    verdict: PolicyVerdict
+    verdict: PolicyVerdict,
+    conversationHistory: ConversationTurn[] = []
   ): Promise<{ response: string; trace: TaskTrace }> {
-    const taskId = uuidv4();
+    const taskId = randomUUID();
     this.traceLogger.startTrace(taskId, userMessage);
 
     const executorConfig = this.config.executors[executorName];
     // Guard: executor must exist (classifier validation should ensure this)
     if (!executorConfig) {
       this.traceLogger.completeTrace(taskId);
-      return this.orchestratorLoop.processMessage(userMessage, [], verdict);
+      return this.orchestratorLoop.processMessage(userMessage, conversationHistory, verdict);
     }
 
     // Policy enforcement: check allowed_executors before dispatch
     if (
+      verdict.allowed_executors?.length > 0 &&
       verdict.allowed_executors[0] !== '*' &&
       !verdict.allowed_executors.includes(executorName)
     ) {
@@ -122,7 +124,6 @@ export class Router {
           error: `Executor "${executorName}" is not allowed by policy`,
         },
       });
-      this.traceLogger.completeTrace(taskId);
       const trace = this.traceLogger.completeTrace(taskId)!;
       return {
         response: `Policy violation: executor "${executorName}" is not allowed in this context.`,
@@ -183,6 +184,6 @@ export class Router {
     });
     this.traceLogger.completeTrace(taskId);
 
-    return this.orchestratorLoop.processMessage(userMessage, [], verdict);
+    return this.orchestratorLoop.processMessage(userMessage, conversationHistory, verdict);
   }
 }

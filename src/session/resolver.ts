@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import type { Session } from './types.js';
 import { SessionStore } from './store.js';
 
@@ -43,7 +43,7 @@ export class SessionResolver {
     }
 
     const now = new Date().toISOString();
-    const sessionId = uuidv4();
+    const sessionId = randomUUID();
 
     const session: Session = {
       session_id: sessionId,
