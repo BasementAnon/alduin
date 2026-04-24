@@ -141,7 +141,7 @@
     .hero {
       position: relative;
       padding: 72px 0 96px;
-      overflow: hidden;
+      overflow-x: hidden;
     }
     .hero::before {
       content: '';
@@ -182,14 +182,14 @@
       font-family: 'Fraunces', Georgia, serif;
       font-weight: 500;
       font-size: clamp(38px, 6.2vw, 76px);
-      line-height: 1.05;
-      letter-spacing: -0.02em;
+      line-height: 1.15;
+      letter-spacing: -0.01em;
       margin: 0 0 22px;
       color: var(--ink);
       word-break: normal;
       overflow-wrap: break-word;
       font-optical-sizing: auto;
-      font-feature-settings: "kern" 1, "liga" 1;
+      font-feature-settings: "kern" 1, "liga" 0;
       text-rendering: optimizeLegibility;
     }
     .hero h1 em {
