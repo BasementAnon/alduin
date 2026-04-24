@@ -18,14 +18,14 @@ npm install
 npm run build
 ```
 
-`npm run build` compiles TypeScript to `dist/`, makes the build artifacts executable, and prepares the `./alduin` wrapper at the project root.
+`npm run build` compiles TypeScript to `dist/`, makes the build artifacts executable, and symlinks the `alduin` command onto your global PATH via `npm link`. After this step, `alduin <command>` works from anywhere — no shell-config changes required.
 
-> **Tip — global `alduin` command:** if you'd rather type `alduin` from anywhere instead of `./alduin` from the project root, run `npm link` once after the build. That symlinks the wrapper into your global npm bin (which is already on your PATH). All command examples below work either way — drop the `./` if you've linked.
+> **If auto-linking fails:** on a system-managed Node install that requires `sudo` to write to the global prefix, the build will print a warning and skip the link. In that case you can still run the CLI as `./alduin <command>` from the project root, or retry once with `sudo npm link`. All examples below also work as `./alduin <command>` if you prefer not to link.
 
 ## 2. Run the setup wizard
 
 ```bash
-./alduin init
+alduin init
 ```
 
 That's it. The wizard handles everything interactively — no need to manually edit `.env` or `config.yaml`. It walks you through 10 steps:
@@ -50,13 +50,13 @@ You can Ctrl-C at any step safely — no partial config is written until you con
 **Development (CLI-only or Telegram long-poll):**
 
 ```bash
-./alduin dev
+alduin dev
 ```
 
 **Development with Telegram:**
 
 ```bash
-./alduin dev:telegram
+alduin dev:telegram
 ```
 
 **Production (webhook mode):**
@@ -73,7 +73,7 @@ In production, set `channels.telegram.mode: webhook` in your config and provide 
 Run the built-in diagnostics:
 
 ```bash
-./alduin doctor
+alduin doctor
 ```
 
 Doctor checks 11 rules: config validity, catalog version, model existence, schema sync, env overrides, vault encryption, plugin integrity, and more. Most warnings have auto-fix support.
@@ -104,25 +104,25 @@ alduin/
 
 ## Common commands
 
-Use `./alduin <command>` from the project root (or `alduin <command>` if you ran `npm link`):
+After `npm run build`, use `alduin <command>` from anywhere (or `./alduin <command>` from the project root if the auto-link step was skipped):
 
 ```bash
-./alduin init                # first-run wizard
-./alduin config              # view/edit configuration
-./alduin doctor              # diagnose config issues
-./alduin models sync         # probe provider /models APIs
-./alduin models diff         # compare config pins vs. catalog
-./alduin models upgrade      # propose new pins, run smoke tests
-./alduin skills list         # list available skills
-./alduin skills run <id>     # execute a skill
-./alduin dev                 # start in development mode
-./alduin dev:telegram        # start with Telegram adapter
-./alduin test                # run test suite
-./alduin test:coverage       # run tests with coverage
-./alduin lint                # type-check the project
-./alduin clean               # remove compiled output
-./alduin config:generate     # regenerate config schema
-./alduin config:check        # verify schema is up to date
+alduin init                # first-run wizard
+alduin config              # view/edit configuration
+alduin doctor              # diagnose config issues
+alduin models sync         # probe provider /models APIs
+alduin models diff         # compare config pins vs. catalog
+alduin models upgrade      # propose new pins, run smoke tests
+alduin skills list         # list available skills
+alduin skills run <id>     # execute a skill
+alduin dev                 # start in development mode
+alduin dev:telegram        # start with Telegram adapter
+alduin test                # run test suite
+alduin test:coverage       # run tests with coverage
+alduin lint                # type-check the project
+alduin clean               # remove compiled output
+alduin config:generate     # regenerate config schema
+alduin config:check        # verify schema is up to date
 
 npm run build                # compile TypeScript to dist/ (run after pulling new code)
 ```
