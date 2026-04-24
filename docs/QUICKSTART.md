@@ -9,29 +9,23 @@ Get Alduin running in under 5 minutes.
 - At least one provider API key (Anthropic, OpenAI, or DeepSeek)
 - Optional: [Ollama](https://ollama.com) for local models
 
-## 0. One-time PATH setup
-
-Add this line to your shell config (`~/.zshrc` on macOS, `~/.bashrc` on Linux):
-
-```bash
-export PATH="./node_modules/.bin:$PATH"
-```
-
-Then reload your shell (`source ~/.zshrc` or open a new terminal). This lets you run `alduin` directly from any npm project — you only need to do this once.
-
 ## 1. Clone, install, and build
 
 ```bash
 git clone https://github.com/BasementAnon/alduin.git
 cd alduin
 npm install
-alduin build
+npm run build
 ```
+
+`npm run build` compiles TypeScript to `dist/`, makes the build artifacts executable, and prepares the `./alduin` wrapper at the project root.
+
+> **Tip — global `alduin` command:** if you'd rather type `alduin` from anywhere instead of `./alduin` from the project root, run `npm link` once after the build. That symlinks the wrapper into your global npm bin (which is already on your PATH). All command examples below work either way — drop the `./` if you've linked.
 
 ## 2. Run the setup wizard
 
 ```bash
-alduin init
+./alduin init
 ```
 
 That's it. The wizard handles everything interactively — no need to manually edit `.env` or `config.yaml`. It walks you through 10 steps:
@@ -56,19 +50,19 @@ You can Ctrl-C at any step safely — no partial config is written until you con
 **Development (CLI-only or Telegram long-poll):**
 
 ```bash
-alduin dev
+./alduin dev
 ```
 
 **Development with Telegram:**
 
 ```bash
-alduin dev:telegram
+./alduin dev:telegram
 ```
 
 **Production (webhook mode):**
 
 ```bash
-alduin build
+npm run build
 node dist/cli.js --config config.yaml
 ```
 
@@ -79,7 +73,7 @@ In production, set `channels.telegram.mode: webhook` in your config and provide 
 Run the built-in diagnostics:
 
 ```bash
-alduin doctor
+./alduin doctor
 ```
 
 Doctor checks 11 rules: config validity, catalog version, model existence, schema sync, env overrides, vault encryption, plugin integrity, and more. Most warnings have auto-fix support.
@@ -110,26 +104,27 @@ alduin/
 
 ## Common commands
 
-Use `alduin <command>` from the project directory:
+Use `./alduin <command>` from the project root (or `alduin <command>` if you ran `npm link`):
 
 ```bash
-alduin init                # first-run wizard
-alduin config              # view/edit configuration
-alduin doctor              # diagnose config issues
-alduin models sync         # probe provider /models APIs
-alduin models diff         # compare config pins vs. catalog
-alduin models upgrade      # propose new pins, run smoke tests
-alduin skills list         # list available skills
-alduin skills run <id>     # execute a skill
-alduin build               # compile TypeScript to dist/
-alduin dev                 # start in development mode
-alduin dev:telegram        # start with Telegram adapter
-alduin test                # run test suite
-alduin test:coverage       # run tests with coverage
-alduin lint                # type-check the project
-alduin clean               # remove compiled output
-alduin config:generate     # regenerate config schema
-alduin config:check        # verify schema is up to date
+./alduin init                # first-run wizard
+./alduin config              # view/edit configuration
+./alduin doctor              # diagnose config issues
+./alduin models sync         # probe provider /models APIs
+./alduin models diff         # compare config pins vs. catalog
+./alduin models upgrade      # propose new pins, run smoke tests
+./alduin skills list         # list available skills
+./alduin skills run <id>     # execute a skill
+./alduin dev                 # start in development mode
+./alduin dev:telegram        # start with Telegram adapter
+./alduin test                # run test suite
+./alduin test:coverage       # run tests with coverage
+./alduin lint                # type-check the project
+./alduin clean               # remove compiled output
+./alduin config:generate     # regenerate config schema
+./alduin config:check        # verify schema is up to date
+
+npm run build                # compile TypeScript to dist/ (run after pulling new code)
 ```
 
 ## Environment variable overrides

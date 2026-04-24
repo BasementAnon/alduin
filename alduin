@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Alduin CLI wrapper.
+#
+# Lets you run `./alduin <command>` from the project root with no PATH setup.
+# Resolves its own location so it works whether you call it via `./alduin`,
+# an absolute path, or a symlink (e.g. one created by `npm link`).
+
+set -e
+
+# Resolve the directory containing this script, following symlinks.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR=$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)
+  SOURCE=$(readlink "$SOURCE")
+  case "$SOURCE" in
+    /*) ;;
+    *) SOURCE="$DIR/$SOURCE" ;;
+  esac
+done
+DIR=$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)
+
+CLI="$DIR/dist/cli.js"
+
+if [ ! -f "$CLI" ]; then
+  cat >&2 <<EOF
+alduin: build artifact not found at $CLI
+
+Run the build first:
+  npm install
+  npm run build
+
+Then re-run this command.
+EOF
+  exit 1
+fi
+
+exec node "$CLI" "$@"

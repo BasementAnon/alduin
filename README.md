@@ -62,19 +62,13 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 > **Full setup guide:** [docs/QUICKSTART.md](docs/QUICKSTART.md)
 
-First, add `./node_modules/.bin` to your PATH (one-time setup — see [QUICKSTART](docs/QUICKSTART.md#0-one-time-path-setup)):
-
-```bash
-echo 'export PATH="./node_modules/.bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
-```
-
-Then:
-
 ```bash
 npm install
-alduin build
-alduin init          # interactive first-run wizard
+npm run build
+./alduin init        # interactive first-run wizard
 ```
+
+`npm run build` compiles TypeScript and prepares the `./alduin` wrapper at the project root — no PATH changes required. If you'd rather call `alduin` from anywhere, run `npm link` once after the build and drop the `./` from every example below.
 
 The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
 1. **Channel** — Telegram or CLI-only; long-poll (dev) or webhook (prod)
@@ -89,13 +83,13 @@ The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
 
 ```bash
 # Development (long-poll mode — no public URL needed)
-alduin dev
+./alduin dev
 
 # With Telegram (requires TELEGRAM_BOT_TOKEN in env)
-TELEGRAM_BOT_TOKEN=<token> alduin dev:telegram
+TELEGRAM_BOT_TOKEN=<token> ./alduin dev:telegram
 
 # Production (webhook mode — requires public HTTPS URL)
-alduin build
+npm run build
 node dist/cli.js --config config.yaml
 ```
 
@@ -105,18 +99,20 @@ node dist/cli.js --config config.yaml
 
 ## CLI commands
 
+Run from the project root as `./alduin <command>` (or just `alduin <command>` if you ran `npm link`):
+
 ```bash
-alduin init             # first-run wizard
-alduin config           # view/edit configuration
-alduin doctor           # diagnose config issues (11 rules, auto-fix support)
-alduin models sync      # probe provider /models APIs, show new/removed
-alduin models diff      # compare current config pins vs. catalog
-alduin models upgrade   # propose new pins, run smoke tests, apply
-alduin skills list      # list available skills
-alduin skills run <id>  # execute a skill in its configured isolation environment
+./alduin init             # first-run wizard
+./alduin config           # view/edit configuration
+./alduin doctor           # diagnose config issues (11 rules, auto-fix support)
+./alduin models sync      # probe provider /models APIs, show new/removed
+./alduin models diff      # compare current config pins vs. catalog
+./alduin models upgrade   # propose new pins, run smoke tests, apply
+./alduin skills list      # list available skills
+./alduin skills run <id>  # execute a skill in its configured isolation environment
 ```
 
-Model versions are **never auto-upgraded**. All changes go through `alduin models upgrade` and are logged to `.alduin/audit.log`.
+Model versions are **never auto-upgraded**. All changes go through `./alduin models upgrade` and are logged to `.alduin/audit.log`.
 
 ---
 
@@ -256,9 +252,9 @@ Full documentation in `config.example.yaml`. Key sections:
 ## Testing
 
 ```bash
-alduin test              # all 858 unit + integration tests
-alduin test -- e2e       # end-to-end test (mocked providers)
-alduin test:coverage
+./alduin test              # all 858 unit + integration tests
+./alduin test -- e2e       # end-to-end test (mocked providers)
+./alduin test:coverage
 ```
 
 ---
@@ -266,7 +262,7 @@ alduin test:coverage
 ## Health check
 
 ```bash
-alduin doctor         # runs 11 diagnostic rules
+./alduin doctor         # runs 11 diagnostic rules
 ```
 
 Rules checked: config-valid, catalog-version, models-exist, models-deprecated, schema-sync, env-overrides, dotenv-secrets, legacy-keys, dangling-refs, vault-encrypt, plugin-schema-drift. Auto-fix available for most warnings.
