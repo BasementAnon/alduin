@@ -143,7 +143,7 @@ export async function runSummary(
   );
 
   if (!action) {
-    log.info('Configuration not saved. Run `npm run init` again to restart.');
+    log.info('Configuration not saved. Run `alduin init` again to restart.');
     return false;
   }
 
@@ -162,15 +162,15 @@ export function commitConfig(
   log.success(`Config written to ${configPath}`);
 
   const mode = channel.mode;
-  const startCmd = mode === 'longpoll' ? 'npm run dev' : 'npm run dev -- --config config.yaml';
+  const startCmd = mode === 'longpoll' ? 'alduin dev' : 'alduin dev -- --config config.yaml';
 
   log.info('');
   log.success('Setup complete!');
   log.info('');
   log.info(`Next steps:`);
   log.info(`  1. Start Alduin:  ${startCmd}`);
-  log.info(`  2. Verify setup:  npm run dev -- doctor`);
-  log.info(`  3. Check models:  npm run dev -- models diff`);
+  log.info(`  2. Verify setup:  alduin doctor`);
+  log.info(`  3. Check models:  alduin models diff`);
 
   if (channel.channel !== 'cli') {
     log.info('');

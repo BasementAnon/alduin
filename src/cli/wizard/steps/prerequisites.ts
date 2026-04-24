@@ -87,7 +87,7 @@ export function checkPrerequisites(): PrerequisiteFailure[] {
     failures.push({
       check: 'Build output',
       message: 'dist/ not found — the project has not been built.',
-      fix: 'Run: npm run build',
+      fix: 'Run: alduin build',
     });
   } else {
     const srcTime = latestMtime('src');
@@ -96,7 +96,7 @@ export function checkPrerequisites(): PrerequisiteFailure[] {
       failures.push({
         check: 'Build freshness',
         message: 'Source files are newer than dist/ — the build is stale.',
-        fix: 'Run: npm run build',
+        fix: 'Run: alduin build',
       });
     }
   }

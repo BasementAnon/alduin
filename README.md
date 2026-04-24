@@ -64,8 +64,8 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 ```bash
 npm install
-npm run build
-npm run init             # interactive first-run wizard
+alduin build
+alduin init              # interactive first-run wizard
 ```
 
 The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
@@ -81,13 +81,13 @@ The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
 
 ```bash
 # Development (long-poll mode — no public URL needed)
-npm run dev
+alduin dev
 
 # With Telegram (requires TELEGRAM_BOT_TOKEN in env)
-TELEGRAM_BOT_TOKEN=<token> npm run dev:telegram
+TELEGRAM_BOT_TOKEN=<token> alduin dev:telegram
 
 # Production (webhook mode — requires public HTTPS URL)
-npm run build
+alduin build
 node dist/cli.js --config config.yaml
 ```
 
@@ -248,9 +248,9 @@ Full documentation in `config.example.yaml`. Key sections:
 ## Testing
 
 ```bash
-npm test              # all 858 unit + integration tests
-npm test -- e2e       # end-to-end test (mocked providers)
-npm run test:coverage
+alduin test              # all 858 unit + integration tests
+alduin test -- e2e       # end-to-end test (mocked providers)
+alduin test:coverage
 ```
 
 ---

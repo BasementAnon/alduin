@@ -45,7 +45,7 @@ export const schemaSyncRule: DoctorRule = {
     if (committedSha === null) {
       return {
         id: this.id, label: this.label, status: 'warn',
-        detail: `${GENERATED_SCHEMA_PATH} not found — run \`npm run config:generate\``,
+        detail: `${GENERATED_SCHEMA_PATH} not found — run \`alduin config:generate\``,
         fixable: true,
       };
     }
@@ -53,7 +53,7 @@ export const schemaSyncRule: DoctorRule = {
     if (committedSha !== freshSha) {
       return {
         id: this.id, label: this.label, status: 'warn',
-        detail: `Committed SHA ${committedSha} ≠ fresh ${freshSha} — run \`npm run config:generate\``,
+        detail: `Committed SHA ${committedSha} ≠ fresh ${freshSha} — run \`alduin config:generate\``,
         fixable: true,
       };
     }

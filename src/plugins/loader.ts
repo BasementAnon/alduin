@@ -202,7 +202,7 @@ async function loadSinglePlugin(
       // merged into schema.generated.ts by checking the INPUT_SHA. Since the
       // generate-schema script hashes plugin schemas into its SHA, a new or
       // changed plugin schema will cause a SHA mismatch — which means the user
-      // must run `npm run config:generate` before the plugin can load.
+      // must run `alduin config:generate` before the plugin can load.
       //
       // For now, we read the contributed schema and check it exists. Full SHA
       // verification happens at the generate-schema level; here we just refuse

@@ -7,7 +7,7 @@ each one locally.
 
 ## Config schema drift check
 
-**Script:** `npm run config:check`
+**Script:** `alduin config:check`
 **Exit code:** 0 = up to date, 1 = drift detected
 
 ### What it checks
@@ -38,7 +38,7 @@ regeneration commit:
 ### How to resolve
 
 ```bash
-npm run config:generate
+alduin config:generate
 git add src/config/schema.generated.ts
 git commit -m "chore: regenerate config schema"
 ```
@@ -67,7 +67,7 @@ git commit -m "chore: regenerate config schema"
 
 1. Add the field to the appropriate domain schema in `src/config/schema/`.
 2. Add a hint entry in `src/config/schema-hints.ts`.
-3. Run `npm run config:generate` and commit the updated generated file.
+3. Run `alduin config:generate` and commit the updated generated file.
 
 ### Marking a field sensitive
 

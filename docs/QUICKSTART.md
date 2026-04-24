@@ -15,13 +15,13 @@ Get Alduin running in under 5 minutes.
 git clone https://github.com/BasementAnon/alduin.git
 cd alduin
 npm install
-npm run build
+alduin build
 ```
 
 ## 2. Run the setup wizard
 
 ```bash
-npm run init
+alduin init
 ```
 
 That's it. The wizard handles everything interactively — no need to manually edit `.env` or `config.yaml`. It walks you through 10 steps:
@@ -46,19 +46,19 @@ You can Ctrl-C at any step safely — no partial config is written until you con
 **Development (CLI-only or Telegram long-poll):**
 
 ```bash
-npm run dev
+alduin dev
 ```
 
 **Development with Telegram:**
 
 ```bash
-npm run dev:telegram
+alduin dev:telegram
 ```
 
 **Production (webhook mode):**
 
 ```bash
-npm run build
+alduin build
 node dist/cli.js --config config.yaml
 ```
 
@@ -69,7 +69,7 @@ In production, set `channels.telegram.mode: webhook` in your config and provide 
 Run the built-in diagnostics:
 
 ```bash
-npm run dev -- doctor
+alduin doctor
 ```
 
 Doctor checks 11 rules: config validity, catalog version, model existence, schema sync, env overrides, vault encryption, plugin integrity, and more. Most warnings have auto-fix support.
@@ -100,18 +100,26 @@ alduin/
 
 ## Common commands
 
-If you've installed globally (`npm install -g`), use `alduin <command>` directly. From a local clone, use `npm run dev --` as the prefix:
+After running `npm link` (or `npm install -g`), use `alduin <command>` for everything:
 
 ```bash
-# From a local clone                    # If installed globally
-npm run init                             alduin init
-npm run dev -- config                    alduin config
-npm run dev -- doctor                    alduin doctor
-npm run dev -- models sync               alduin models sync
-npm run dev -- models diff               alduin models diff
-npm run dev -- models upgrade             alduin models upgrade
-npm run dev -- skills list               alduin skills list
-npm run dev -- skills run <id>           alduin skills run <id>
+alduin init                    # first-run wizard
+alduin config                  # view/edit configuration
+alduin doctor                  # diagnose config issues
+alduin models sync             # probe provider /models APIs
+alduin models diff             # compare config pins vs. catalog
+alduin models upgrade          # propose new pins, run smoke tests
+alduin skills list             # list available skills
+alduin skills run <id>         # execute a skill
+alduin build                   # compile TypeScript to dist/
+alduin dev                     # start in development mode
+alduin dev:telegram            # start with Telegram adapter
+alduin test                    # run test suite
+alduin test:coverage           # run tests with coverage
+alduin lint                    # type-check the project
+alduin clean                   # remove compiled output
+alduin config:generate         # regenerate config schema
+alduin config:check            # verify schema is up to date
 ```
 
 ## Environment variable overrides
@@ -132,7 +140,7 @@ If you prefer to configure Alduin by hand instead of using the wizard:
 
 1. Copy `.env.example` to `.env` and fill in your API keys
 2. Copy `config.example.yaml` to `config.yaml` and edit to taste
-3. Run `npm run dev -- doctor` to verify your setup
+3. Run `alduin doctor` to verify your setup
 
 See `config.example.yaml` for all available options and their documentation.
 
@@ -181,11 +189,11 @@ If running in webhook mode, also ensure:
 | Webhook endpoint discovered | Attacker can forge inbound messages | Signature verification + IP allowlist reject forgeries |
 | Bot token leaked | Full impersonation of your bot | Rotate token via BotFather immediately; revoke old token |
 
-If your bot token is ever compromised, revoke it immediately via BotFather (`/revoke`) and run `npm run init` to re-provision.
+If your bot token is ever compromised, revoke it immediately via BotFather (`/revoke`) and run `alduin init` to re-provision.
 
 ## Next steps
 
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design
 - Explore `config.example.yaml` for all configuration options
-- Run `npm test` to verify the test suite passes on your machine
+- Run `alduin test` to verify the test suite passes on your machine
 - Try `/alduin status` in your Telegram chat to see the bot in action

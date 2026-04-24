@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
-    "alduin": "dist/cli.js"
+    "alduin": "bin/alduin"
   },
   "scripts": {
     "build:sdk": "npm run build --workspace=@alduin/plugin-sdk",

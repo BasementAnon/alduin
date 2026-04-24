@@ -55,7 +55,7 @@ export async function runWelcome(configPath: string): Promise<WelcomeAnswers> {
       })
     );
     if (!confirmed) {
-      log.info('Keeping existing config. Run `npm run init` again to reconfigure.');
+      log.info('Keeping existing config. Run `alduin init` again to reconfigure.');
       process.exit(0);
     }
   }
