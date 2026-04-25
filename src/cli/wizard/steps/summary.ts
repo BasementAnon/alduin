@@ -162,14 +162,11 @@ export function commitConfig(
   atomicWriteFile(configPath, configYaml);
   log.success(`Config written to ${configPath}`);
 
-  const mode = channel.mode;
-  const startCmd = mode === 'longpoll' ? 'alduin dev' : 'alduin dev -- --config config.yaml';
-
   log.info('');
   log.success('Setup complete!');
   log.info('');
   log.info(`Next steps:`);
-  log.info(`  1. Start Alduin:  ${startCmd}`);
+  log.info(`  1. Start Alduin:  alduin start`);
   log.info(`  2. Verify setup:  alduin doctor`);
   log.info(`  3. Check models:  alduin models diff`);
 

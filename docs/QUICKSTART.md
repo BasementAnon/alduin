@@ -49,25 +49,22 @@ You can Ctrl-C at any step safely — no partial config is written until you con
 
 ## 3. Start Alduin
 
-**Development (CLI-only):**
+```bash
+alduin start
+```
+
+This boots the full runtime — providers, session store, policy engine, Telegram long-poll, and the webhook gateway. No public URL or firewall configuration required.
+
+**Development (CLI REPL only — no Telegram):**
 
 ```bash
 alduin dev
 ```
 
-**With Telegram (long-poll — no public URL needed):**
+**Restart after config changes:**
 
 ```bash
-alduin dev:telegram
-```
-
-Alduin uses long-poll only for Telegram — no public URL or firewall configuration required.
-
-**Non-Telegram production workloads:**
-
-```bash
-npm run build
-node dist/cli.js --config config.yaml
+alduin restart gateway
 ```
 
 ## 4. Verify your setup
@@ -110,10 +107,12 @@ After `npm run build`, use `alduin <command>` from anywhere (or `./alduin <comma
 
 ```bash
 alduin init                # first-run wizard
+alduin start               # boot full runtime (Telegram + gateway)
+alduin restart gateway     # reload config and restart the runtime
 alduin reconfigure         # post-setup menu: change one section without re-running init
 alduin update              # pull latest from origin/main, rebuild, restart Telegram if enabled
                            # (requires a git checkout; tracks origin/main — not for feature branches)
-alduin telegram restart    # restart the Telegram long-poll connection
+alduin telegram restart    # restart the Telegram long-poll connection (one-shot test)
 alduin config              # view/edit configuration
 alduin doctor              # diagnose config issues
 alduin models sync         # probe provider /models APIs
@@ -121,8 +120,8 @@ alduin models diff         # compare config pins vs. catalog
 alduin models upgrade      # propose new pins, run smoke tests
 alduin skills list         # list available skills
 alduin skills run <id>     # execute a skill
-alduin dev                 # start in development mode
-alduin dev:telegram        # start with Telegram adapter
+alduin dev                 # start in development mode (CLI REPL only)
+alduin dev:telegram        # start with Telegram adapter (dev shortcut)
 alduin test                # run test suite
 alduin test:coverage       # run tests with coverage
 alduin lint                # type-check the project
