@@ -192,15 +192,30 @@ export async function runChannelSetup(vault: CredentialVault, existing?: Partial
   );
 
   if (restrictUsers) {
+    // Prominent warning before the ID prompt (item #6)
+    note(
+      'USER ID — NOT USERNAME\n\n' +
+        'Telegram user IDs are NUMERIC (e.g. 123456789).\n' +
+        'They are NOT your @username.\n\n' +
+        'How to find yours:\n' +
+        '  1. Open Telegram\n' +
+        '  2. Message @userinfobot\n' +
+        '  3. It replies with "Id: 123456789" — copy the number\n\n' +
+        'If you paste a username here, you will be locked out of your own bot.',
+      'WARNING: User ID — not username'
+    );
+
     const rawIds = guard(
       await text({
-        message:
-          'Comma-separated Telegram user IDs (find yours via @userinfobot on Telegram):',
+        message: 'Comma-separated Telegram user IDs:',
         placeholder: '123456789, 987654321',
         validate: (v) => {
           if (!v || v.trim().length === 0) return 'At least one user ID is required';
           const parts = v.split(',').map((s) => s.trim());
           for (const part of parts) {
+            if (part.startsWith('@') || /[a-zA-Z]/.test(part)) {
+              return `"@${part.replace(/^@/, '')}" looks like a username, not a user ID. Numeric IDs only — message @userinfobot to get yours.`;
+            }
             if (!/^\d+$/.test(part)) return `"${part}" is not a valid numeric user ID`;
           }
           return undefined;
@@ -213,8 +228,9 @@ export async function runChannelSetup(vault: CredentialVault, existing?: Partial
       .map((s) => parseInt(s.trim(), 10))
       .filter((n) => !isNaN(n));
 
+    const idList = answers.allowedUserIds.join(', ');
     log.success(
-      `Access restricted to ${answers.allowedUserIds.length} user(s): ${answers.allowedUserIds.join(', ')}`
+      `Allowlist: ${answers.allowedUserIds.length} user(s) (ID${answers.allowedUserIds.length !== 1 ? 's' : ''} ${idList}). Anything else will be silently dropped.`
     );
   }
 
