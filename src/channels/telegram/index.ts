@@ -65,27 +65,41 @@ export class TelegramAdapter implements ChannelAdapter {
 
     // Wire all updates through our normalizer
     // grammy v1 uses middleware, not event emitter — handle all message types
-    this.bot.use((ctx) => {
-      // ── Allowlist check (channel-level gate, runs before everything else) ──
-      const allowedIds = this.config.allowed_user_ids;
-      if (allowedIds && allowedIds.length > 0) {
-        const senderId = ctx.from?.id ?? null;
-        if (senderId === null || !allowedIds.includes(senderId)) {
-          console.warn(
-            `[Telegram] Rejected message from unauthorized Telegram user ${senderId ?? 'unknown'}`
-          );
-          return;
-        }
-      }
-
-      if (!this.eventHandler) return;
-      const raw: RawChannelEvent = {
-        channel: 'telegram',
-        received_at: new Date().toISOString(),
-        payload: ctx.update,
-      };
-      this.eventHandler(raw);
+    this.bot.use(async (ctx, next) => {
+      this.handleUpdate(ctx.update);
+      await next();
     });
+  }
+
+  /**
+   * Shared update handler: runs the allowlist gate then dispatches to the
+   * event handler. Extracted so the constructor and restart() stay in sync.
+   */
+  private handleUpdate(update: import('grammy/types').Update): void {
+    // ── Allowlist check (channel-level gate, runs before everything else) ──
+    const allowedIds = this.config.allowed_user_ids;
+    if (allowedIds && allowedIds.length > 0) {
+      // Telegram user IDs live on ctx.from, not on the update directly
+      const from =
+        update.message?.from ??
+        update.edited_message?.from ??
+        update.callback_query?.from;
+      const senderId = from?.id ?? null;
+      if (senderId === null || !allowedIds.includes(senderId)) {
+        console.warn(
+          `[Telegram] Rejected message from unauthorized Telegram user ${senderId ?? 'unknown'}`
+        );
+        return;
+      }
+    }
+
+    if (!this.eventHandler) return;
+    const raw: RawChannelEvent = {
+      channel: 'telegram',
+      received_at: new Date().toISOString(),
+      payload: update,
+    };
+    this.eventHandler(raw);
   }
 
   onEvent(handler: (event: RawChannelEvent) => void): void {
@@ -144,26 +158,11 @@ export class TelegramAdapter implements ChannelAdapter {
       this.config.token,
       this.config._botInfo ? { botInfo: this.config._botInfo } : undefined
     );
-    // Re-wire the event handler
+    // Re-wire the event handler using the shared middleware helper
     const savedHandler = this.eventHandler;
-    this.bot.use((ctx) => {
-      const allowedIds = this.config.allowed_user_ids;
-      if (allowedIds && allowedIds.length > 0) {
-        const senderId = ctx.from?.id ?? null;
-        if (senderId === null || !allowedIds.includes(senderId)) {
-          console.warn(
-            `[Telegram] Rejected message from unauthorized Telegram user ${senderId ?? 'unknown'}`
-          );
-          return;
-        }
-      }
-      if (!this.eventHandler) return;
-      const raw: RawChannelEvent = {
-        channel: 'telegram',
-        received_at: new Date().toISOString(),
-        payload: ctx.update,
-      };
-      this.eventHandler(raw);
+    this.bot.use(async (ctx, next) => {
+      this.handleUpdate(ctx.update);
+      await next();
     });
     this.eventHandler = savedHandler;
 

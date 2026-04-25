@@ -4,8 +4,13 @@
  * and logs received NormalizedEvents + Sessions to stdout.
  *
  * Usage:
- *   TELEGRAM_BOT_TOKEN=<token> npx tsx src/dev-telegram.ts [--config config.yaml]
+ *   npx tsx src/dev-telegram.ts [--config config.yaml]
+ *   (secrets are loaded from .env automatically; TELEGRAM_BOT_TOKEN can also be
+ *    passed inline as an env var override)
  */
+
+// Load .env before reading any env vars (token, API keys, etc.)
+import 'dotenv/config';
 
 import { parseArgs } from 'node:util';
 import { createRuntime } from './index.js';

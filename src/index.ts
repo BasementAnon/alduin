@@ -528,7 +528,10 @@ export async function createRuntime(
           is_group: normalized.external.is_group,
         });
 
-        void handleNormalizedEvent(normalized, session, adapter);
+        handleNormalizedEvent(normalized, session, adapter).catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[Alduin] Unhandled error in event handler: ${message}`);
+        });
       }).catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[Alduin] Raw event processing error: ${message}`);
@@ -558,6 +561,7 @@ export async function createRuntime(
         token,
         webhook_url: tgConfig.webhook_url,
         webhook_secret: webhookSecret,
+        allowed_user_ids: tgConfig.allowed_user_ids,
       });
 
       tgAdapter.onEvent(buildRawHandler(tgAdapter));

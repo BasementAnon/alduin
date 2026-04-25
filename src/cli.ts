@@ -5,6 +5,10 @@
  * Wires together all Phase 1–5 modules into a single interactive session.
  */
 
+// Load .env before anything else so TELEGRAM_BOT_TOKEN and other secrets are
+// available to process.env for every subcommand (telegram restart, etc.).
+import 'dotenv/config';
+
 import readline from 'node:readline';
 import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
