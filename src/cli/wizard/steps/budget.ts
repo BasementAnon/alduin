@@ -158,9 +158,23 @@ export async function runBudget(
     }
   }
 
-  // ── Per-task limit (opt-in, always shown) — see item #4 ──────────────────
-  // NOTE: per-task tier recommendations and logic are in item #4 (runBudget
-  // currently handles per-task inline; they will be refactored in that item).
+  // ── Per-task limit (opt-in, always shown) ────────────────────────────────
+  note(
+    'Per-task spend tiers:\n\n' +
+      '  Simple   — single classifier call + one short executor reply\n' +
+      '             (e.g. "what\'s on my calendar today?")\n' +
+      '             Suggested cap: $0.10\n\n' +
+      '  Medium   — orchestrator plans 2–4 executor steps, may include retrieval\n' +
+      '             (e.g. "summarize today\'s emails and draft replies")\n' +
+      '             Suggested cap: $0.50\n\n' +
+      '  Hard     — recursive sub-orchestration, multi-step research, large attachments\n' +
+      '             (e.g. "research X across 5 PDFs and produce a memo")\n' +
+      '             Suggested cap: $2.00\n\n' +
+      'Pick the tier you\'d hit most often. The cap aborts a single task once\n' +
+      'it\'s exceeded — it does not roll over to the next task.',
+    'Per-task spend tiers'
+  );
+
   const wantsPerTask = guard(
     await confirm({
       message: 'Set a per-task spending cap? (recommended even without a daily budget)',
