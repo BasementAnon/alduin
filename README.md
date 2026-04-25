@@ -103,7 +103,8 @@ Alduin uses long-poll for Telegram. No public URL, webhook secret, or firewall c
 
 ```bash
 alduin init             # first-run wizard
-alduin config           # view/edit configuration
+alduin reconfigure      # post-setup menu: change one section at a time
+alduin config           # view/edit configuration (dotted-path access)
 alduin doctor           # diagnose config issues (11 rules, auto-fix support)
 alduin models sync      # probe provider /models APIs, show new/removed
 alduin models diff      # compare current config pins vs. catalog

@@ -193,6 +193,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Handle `reconfigure` subcommand
+  if (positionalArgs[0] === 'reconfigure') {
+    const { handleReconfigureCommand } = await import('./cli/reconfigure.js');
+    await handleReconfigureCommand();
+    return;
+  }
+
   // Handle `models` subcommand before starting REPL
   if (positionalArgs[0] === 'models' && positionalArgs[1]) {
     const { handleModelsCommand } = await import('./cli/models.js');
