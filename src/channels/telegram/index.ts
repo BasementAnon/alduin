@@ -181,6 +181,11 @@ export class TelegramAdapter implements ChannelAdapter {
     return { botUsername: resolvedUsername };
   }
 
+  /** The configured transport mode ('longpoll' or 'webhook'). */
+  get mode(): string {
+    return this.config.mode;
+  }
+
   /** Returns whether the grammY polling loop is currently running. */
   isRunning(): boolean {
     return this.bot.isRunning();

@@ -172,9 +172,13 @@ export class WebhookGateway {
 
     const tgAdapter = adapter as TelegramAdapter;
     if (adapter.id === 'telegram' && typeof tgAdapter.getWebhookHandler === 'function') {
-      // Register as a custom handler, not a sibling route. The catch-all
-      // at /webhooks/:channel would otherwise shadow this under Express 5.
-      this.customHandlers.set('telegram', tgAdapter.getWebhookHandler());
+      // Only register the Grammy webhook handler when NOT in long-poll mode.
+      // Calling webhookCallback() marks the Bot instance as webhook-configured,
+      // which causes bot.start() (long-poll) to throw:
+      //   "You already started the bot via webhooks"
+      if (tgAdapter.mode !== 'longpoll') {
+        this.customHandlers.set('telegram', tgAdapter.getWebhookHandler());
+      }
     }
   }
 
