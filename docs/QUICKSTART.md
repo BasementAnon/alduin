@@ -45,6 +45,8 @@ That's it. The wizard handles everything interactively — no need to manually e
 
 You can Ctrl-C at any step safely — no partial config is written until you confirm in Step 9. API keys are stored in the encrypted vault, never as plaintext on disk.
 
+> **New to the Orchestrator / Classifier / Executor model?** Read [CONCEPTS.md](CONCEPTS.md) before Step 3 — it explains what each role does, why they're separate, and which model tier to assign to each one.
+
 ## 3. Start Alduin
 
 **Development (CLI-only or Telegram long-poll):**

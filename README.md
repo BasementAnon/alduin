@@ -6,6 +6,8 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 ---
 
+> **New to the architecture?** Read [`docs/CONCEPTS.md`](docs/CONCEPTS.md) first — it explains the Orchestrator, Classifier, and Executor roles in plain language before you hit model assignments during setup.
+
 ## Two-plane architecture
 
 ```

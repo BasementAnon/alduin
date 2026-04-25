@@ -8,7 +8,7 @@
  * Shows estimated cost-per-call for each selection.
  */
 
-import { confirm, log, select } from '@clack/prompts';
+import { confirm, log, note, select } from '@clack/prompts';
 import type { ModelCatalog } from '../../../catalog/catalog.js';
 import type {
   ExecutorConfig,
@@ -290,6 +290,15 @@ export async function runPickModels(
   catalog: ModelCatalog | null,
   providerAnswers: ProviderAnswers
 ): Promise<ModelAnswers> {
+  note(
+    'Alduin has three runtime roles:\n\n' +
+      '  Orchestrator — plans tasks (never executes); most capable model\n' +
+      '  Classifier   — cheap pre-router; decides if planning is even needed\n' +
+      '  Executors    — each does one scoped task with no conversation history\n\n' +
+      'New to this? See docs/CONCEPTS.md for details and model-tier guidance.',
+    'Step 3: Model assignment'
+  );
+
   const configuredProviderIds = providerAnswers.providers.map((p) => p.id);
   const available = getAvailableModels(catalog, configuredProviderIds);
 
