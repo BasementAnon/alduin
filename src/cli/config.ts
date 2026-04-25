@@ -114,6 +114,18 @@ export function configGet(configPath: string, dotPath: string): void {
 export function configSet(configPath: string, dotPath: string, rawValue: string): void {
   const segments = parseDotPath(dotPath);
 
+  // Guard: reject attempts to set channels.telegram.mode to webhook.
+  // Webhook mode is no longer user-facing (plan item #5).
+  if (dotPath === 'channels.telegram.mode' && rawValue === 'webhook') {
+    console.error(
+      'alduin config set: cannot set channels.telegram.mode to webhook.\n' +
+        'Telegram webhook mode is no longer supported. Alduin uses long-poll exclusively.\n' +
+        "Run `alduin reconfigure` (Telegram section) to fix, or\n" +
+        '`alduin config set channels.telegram.mode longpoll`.'
+    );
+    process.exit(1);
+  }
+
   // Validate path against schema and coerce value
   let leafSchema;
   try {

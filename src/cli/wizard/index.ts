@@ -328,9 +328,9 @@ export async function runInitWizard(): Promise<void> {
     if (fullState.channel.botToken) {
       writeEnvVar('TELEGRAM_BOT_TOKEN', fullState.channel.botToken);
     }
-    if (fullState.channel.webhookSecret) {
-      writeEnvVar('ALDUIN_WEBHOOK_SECRET', fullState.channel.webhookSecret);
-    }
+    // ALDUIN_WEBHOOK_SECRET is no longer written — webhook mode removed from
+    // user journey (plan item #5). The runtime webhook code is still compiled
+    // but not wired through wizard.
 
     // Audit entry
     const a = fullState.models.assignments;

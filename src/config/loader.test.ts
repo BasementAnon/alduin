@@ -147,6 +147,53 @@ budgets:
     }
   });
 
+  it('rejects config with channels.telegram.mode: webhook (plan item #5)', () => {
+    const yaml = `
+orchestrator:
+  model: anthropic/claude-sonnet-4-6
+  max_planning_tokens: 4000
+  context_strategy: sliding_window
+  context_window: 16000
+executors:
+  code:
+    model: anthropic/claude-sonnet-4-6
+    max_tokens: 8000
+    tools: []
+    context: task_only
+providers:
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY
+routing:
+  pre_classifier: true
+  classifier_model: classifier
+  complexity_threshold: 0.6
+budgets:
+  daily_limit_usd: 10.0
+  per_task_limit_usd: 2.0
+  warning_threshold: 0.8
+channels:
+  telegram:
+    enabled: true
+    mode: webhook
+    token_env: TELEGRAM_BOT_TOKEN
+    webhook_url: https://example.com/webhooks/telegram
+`;
+    const tmpPath = path.resolve(__dirname, '../../.tmp-test-webhook-mode.yaml');
+    writeFileSync(tmpPath, yaml, 'utf-8');
+
+    try {
+      const result = loadConfig(tmpPath);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('validation_error');
+        expect(result.error.message).toContain('webhook mode is no longer supported');
+        expect(result.error.field).toBe('channels.telegram.mode');
+      }
+    } finally {
+      try { unlinkSync(tmpPath); } catch { /* virtiofs may prevent unlink in test env */ }
+    }
+  });
+
   it('warns but does not fail when an env var is not set', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     // ANTHROPIC_API_KEY is very likely not set in the test environment

@@ -273,4 +273,41 @@ describe('admin command parsing (no SQLite)', () => {
     const result = handleAdminCommand('/alduin plugins install', makeCtx(), deps);
     expect(result.reply).toContain('Usage');
   });
+
+  // ── telegram restart (item #8) ─────────────────────────────────────────
+
+  it('/alduin telegram restart denied for non-admin', () => {
+    const result = handleAdminCommand('/alduin telegram restart', makeCtx('member'), deps);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('owner or admin');
+  });
+
+  it('/alduin telegram restart returns "not available" when no restartTelegram handler', () => {
+    const result = handleAdminCommand('/alduin telegram restart', makeCtx('owner'), deps);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('not available');
+  });
+
+  it('/alduin telegram restart calls restartTelegram and audits', () => {
+    const restartMock = vi.fn().mockResolvedValue({ botUsername: 'mybot' });
+    const depsWithRestart = makeDeps({ restartTelegram: restartMock });
+
+    const result = handleAdminCommand(
+      '/alduin telegram restart',
+      makeCtx('owner'),
+      depsWithRestart
+    );
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('Restarting');
+    expect(restartMock).toHaveBeenCalledOnce();
+    expect(depsWithRestart.auditLog.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'telegram.restart' })
+    );
+  });
+
+  it('/alduin telegram without "restart" shows usage', () => {
+    const result = handleAdminCommand('/alduin telegram', makeCtx('owner'), deps);
+    expect(result.handled).toBe(true);
+    expect(result.reply).toContain('Usage');
+  });
 });

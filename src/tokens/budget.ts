@@ -74,6 +74,12 @@ export class BudgetTracker {
     this.resetIfNewDay();
 
     const totalSpent = this.totalCost();
+
+    // daily_limit_usd === 0 means "no daily cap" — never block, never warn
+    if (this.config.daily_limit_usd === 0) {
+      return { allowed: true, remaining_usd: Infinity, warning: false };
+    }
+
     const remaining_usd = Math.max(0, this.config.daily_limit_usd - totalSpent);
     const warning =
       totalSpent >= this.config.daily_limit_usd * this.config.warning_threshold;
@@ -99,14 +105,19 @@ export class BudgetTracker {
   getDailySummary(): {
     per_model: Map<string, ModelUsage>;
     total_cost: number;
+    /** Infinity when daily_limit_usd === 0 (no cap). */
     budget_remaining: number;
   } {
     this.resetIfNewDay();
     const total_cost = this.totalCost();
+    const budget_remaining =
+      this.config.daily_limit_usd === 0
+        ? Infinity
+        : Math.max(0, this.config.daily_limit_usd - total_cost);
     return {
       per_model: new Map(this.perModel),
       total_cost,
-      budget_remaining: Math.max(0, this.config.daily_limit_usd - total_cost),
+      budget_remaining,
     };
   }
 

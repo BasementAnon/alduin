@@ -6,6 +6,8 @@ Alduin fixes the core architectural flaw in OpenClaw: the executing model decide
 
 ---
 
+> **New to the architecture?** Read [`docs/CONCEPTS.md`](docs/CONCEPTS.md) first — it explains the Orchestrator, Classifier, and Executor roles in plain language before you hit model assignments during setup.
+
 ## Two-plane architecture
 
 ```
@@ -71,10 +73,10 @@ alduin init        # interactive first-run wizard
 `npm run build` compiles TypeScript and automatically links the `alduin` command onto your global PATH via `npm link`. If linking fails (e.g. a system-managed Node install that needs `sudo`), you can still run the CLI as `./alduin <command>` from the project root, or re-run with `sudo npm link`.
 
 The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
-1. **Channel** — Telegram or CLI-only; long-poll (dev) or webhook (prod)
+1. **Channel** — Telegram or CLI-only; Telegram always uses long-poll (no public URL needed)
 2. **Tokens** — bot token written directly to the encrypted vault (never to disk unencrypted)
 3. **Models** — orchestrator + classifier from the pinned catalog; pins validated
-4. **Budget** — daily limit, warning threshold, optional per-model caps
+4. **Budget** — optional daily limit, per-task cap, warning threshold, optional per-model caps
 5. **Self-test** — one classifier + one orchestrator round-trip; latency + cost reported
 
 ---
@@ -88,26 +90,29 @@ alduin dev
 # With Telegram (requires TELEGRAM_BOT_TOKEN in env)
 TELEGRAM_BOT_TOKEN=<token> alduin dev:telegram
 
-# Production (webhook mode — requires public HTTPS URL)
+# Production (non-Telegram workloads)
 npm run build
 node dist/cli.js --config config.yaml
 ```
 
-**Production security:** The webhook gateway port should be firewalled to only accept traffic from your webhook provider's IP ranges (e.g. Telegram uses `149.154.160.0/20` and `91.108.4.0/22`). The gateway strips CORS headers so browsers cannot reach it. If you add an admin panel later, bind it to `127.0.0.1` on a separate port.
+Alduin uses long-poll for Telegram. No public URL, webhook secret, or firewall configuration is required.
 
 ---
 
 ## CLI commands
 
 ```bash
-alduin init             # first-run wizard
-alduin config           # view/edit configuration
-alduin doctor           # diagnose config issues (11 rules, auto-fix support)
-alduin models sync      # probe provider /models APIs, show new/removed
-alduin models diff      # compare current config pins vs. catalog
-alduin models upgrade   # propose new pins, run smoke tests, apply
-alduin skills list      # list available skills
-alduin skills run <id>  # execute a skill in its configured isolation environment
+alduin init                     # first-run wizard
+alduin reconfigure              # post-setup menu: change one section at a time
+alduin update                   # pull latest from origin/main, rebuild, optional restart
+alduin telegram restart         # restart the Telegram long-poll connection
+alduin config                   # view/edit configuration (dotted-path access)
+alduin doctor                   # diagnose config issues (11 rules, auto-fix support)
+alduin models sync              # probe provider /models APIs, show new/removed
+alduin models diff              # compare current config pins vs. catalog
+alduin models upgrade           # propose new pins, run smoke tests, apply
+alduin skills list              # list available skills
+alduin skills run <id>          # execute a skill in its configured isolation environment
 ```
 
 Model versions are **never auto-upgraded**. All changes go through `alduin models upgrade` and are logged to `.alduin/audit.log`.
@@ -131,6 +136,7 @@ All admin commands require `owner` or `admin` role.
 /alduin policy allow tool echo               allow a tool
 /alduin policy deny connector google-cal     deny a connector
 /alduin recursion on|off|status              toggle recursive sub-orchestration
+/alduin telegram restart                     restart Telegram long-poll connection
 /alduin trace <id|last>                      show trace (tree format for recursive)
 /alduin models list                          show configured models
 /alduin models sync                          sync model catalog

@@ -37,7 +37,7 @@ That's it. The wizard handles everything interactively — no need to manually e
 | **2. Providers** | Multi-select LLM providers, enter API keys (encrypted in vault), test connectivity |
 | **3. Models** | Assign models per role (orchestrator, classifier, executors) — fast-track defaults or customize each |
 | **4. Budget** | Daily spend limit, per-task limit, warning threshold, optional per-model caps |
-| **5. Channel** | CLI / Telegram / Both — validates bot token via getMe, configures webhook or long-poll, sets up user allowlist |
+| **5. Channel** | CLI / Telegram / Both — validates bot token via getMe, uses long-poll automatically, sets up user allowlist |
 | **6. Skills** | Enable/disable curated skills (research, code-review, summarize, etc.) |
 | **7. Owner** | Seeds the first admin owner for Telegram commands |
 | **8. Self-test** | Round-trip LLM calls with latency and cost report |
@@ -45,28 +45,30 @@ That's it. The wizard handles everything interactively — no need to manually e
 
 You can Ctrl-C at any step safely — no partial config is written until you confirm in Step 9. API keys are stored in the encrypted vault, never as plaintext on disk.
 
+> **New to the Orchestrator / Classifier / Executor model?** Read [CONCEPTS.md](CONCEPTS.md) before Step 3 — it explains what each role does, why they're separate, and which model tier to assign to each one.
+
 ## 3. Start Alduin
 
-**Development (CLI-only or Telegram long-poll):**
+**Development (CLI-only):**
 
 ```bash
 alduin dev
 ```
 
-**Development with Telegram:**
+**With Telegram (long-poll — no public URL needed):**
 
 ```bash
 alduin dev:telegram
 ```
 
-**Production (webhook mode):**
+Alduin uses long-poll only for Telegram — no public URL or firewall configuration required.
+
+**Non-Telegram production workloads:**
 
 ```bash
 npm run build
 node dist/cli.js --config config.yaml
 ```
-
-In production, set `channels.telegram.mode: webhook` in your config and provide a public HTTPS URL.
 
 ## 4. Verify your setup
 
@@ -108,6 +110,10 @@ After `npm run build`, use `alduin <command>` from anywhere (or `./alduin <comma
 
 ```bash
 alduin init                # first-run wizard
+alduin reconfigure         # post-setup menu: change one section without re-running init
+alduin update              # pull latest from origin/main, rebuild, restart Telegram if enabled
+                           # (requires a git checkout; tracks origin/main — not for feature branches)
+alduin telegram restart    # restart the Telegram long-poll connection
 alduin config              # view/edit configuration
 alduin doctor              # diagnose config issues
 alduin models sync         # probe provider /models APIs
@@ -177,13 +183,7 @@ These settings are managed through [@BotFather](https://t.me/BotFather) on Teleg
 - **Group Privacy** (`/setprivacy` → Enabled): when the bot is in a group, it only sees messages that start with `/` or directly @mention it. This reduces noise but is not access control — any group member can still invoke it.
 - **Join Groups** (`/setjoingroups` → Disabled): prevents anyone from adding your bot to groups. Recommended unless you specifically need group functionality.
 
-### 3. Webhook mode hardening
-
-If running in webhook mode, also ensure:
-
-- Firewall the webhook port to only accept traffic from Telegram's IP ranges (`149.154.160.0/20` and `91.108.4.0/22`).
-- Set `TELEGRAM_WEBHOOK_SECRET` in your `.env` and configure it in BotFather — Alduin verifies this signature on every inbound webhook.
-- Never expose the webhook endpoint on a wildcard (`0.0.0.0`) without a reverse proxy in front.
+Alduin uses long-poll only — no public URL or firewall configuration required.
 
 ### Risk summary
 
@@ -191,7 +191,6 @@ If running in webhook mode, also ensure:
 |------|-------------------|-----------------|
 | Unauthorized users send messages | Messages hit orchestrator, consume API budget, receive responses | Dropped at adapter level, zero cost |
 | Bot added to unknown group | All group members can interact | `/setjoingroups` disabled prevents this |
-| Webhook endpoint discovered | Attacker can forge inbound messages | Signature verification + IP allowlist reject forgeries |
 | Bot token leaked | Full impersonation of your bot | Rotate token via BotFather immediately; revoke old token |
 
 If your bot token is ever compromised, revoke it immediately via BotFather (`/revoke`) and run `alduin init` to re-provision.

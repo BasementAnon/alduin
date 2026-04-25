@@ -193,6 +193,27 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Handle `reconfigure` subcommand
+  if (positionalArgs[0] === 'reconfigure') {
+    const { handleReconfigureCommand } = await import('./cli/reconfigure.js');
+    await handleReconfigureCommand();
+    return;
+  }
+
+  // Handle `telegram` subcommand
+  if (positionalArgs[0] === 'telegram') {
+    const { handleTelegramCommand } = await import('./cli/telegram.js');
+    await handleTelegramCommand(positionalArgs.slice(1), configPath);
+    return;
+  }
+
+  // Handle `update` subcommand
+  if (positionalArgs[0] === 'update') {
+    const { handleUpdateCommand } = await import('./cli/update.js');
+    await handleUpdateCommand(positionalArgs.slice(1));
+    return;
+  }
+
   // Handle `models` subcommand before starting REPL
   if (positionalArgs[0] === 'models' && positionalArgs[1]) {
     const { handleModelsCommand } = await import('./cli/models.js');
@@ -308,13 +329,18 @@ async function main(): Promise<void> {
     ? loadedProviders.join(', ')
     : 'none (check API keys in .env)';
 
+  const dailyLimitDisabled = config.budgets.daily_limit_usd === 0;
+  const budgetLine = dailyLimitDisabled
+    ? 'Budget: unlimited (no daily cap)'
+    : `Budget: $${budgetSummary.budget_remaining.toFixed(2)} / $${config.budgets.daily_limit_usd.toFixed(2)} daily`;
+
   console.log(`
 ╦ ╦┌─┐┬  ┬┌─┐┌─┐
 ╠═╣├┤ │  ││ │└─┐
 ╩ ╩└─┘┴─┘┴└─┘└─┘  v${VERSION}
 
 Models: ${modelsLine}
-Budget: $${budgetSummary.budget_remaining.toFixed(2)} / $${config.budgets.daily_limit_usd.toFixed(2)} daily
+${budgetLine}
 Type /help for commands, or start chatting.
 `);
 
@@ -391,8 +417,12 @@ Commands:
 
         case '/budget': {
           const s = budgetTracker.getDailySummary();
-          const pct = ((s.total_cost / config.budgets.daily_limit_usd) * 100).toFixed(1);
-          console.log(`Budget: $${s.total_cost.toFixed(4)} used / $${s.budget_remaining.toFixed(2)} remaining (${pct}%)`);
+          if (config.budgets.daily_limit_usd === 0) {
+            console.log(`Budget: $${s.total_cost.toFixed(4)} used today (no daily cap)`);
+          } else {
+            const pct = ((s.total_cost / config.budgets.daily_limit_usd) * 100).toFixed(1);
+            console.log(`Budget: $${s.total_cost.toFixed(4)} used / $${s.budget_remaining.toFixed(2)} remaining (${pct}%)`);
+          }
           if (s.per_model.size > 0) {
             console.log('Per model:');
             for (const [model, usage] of s.per_model) {

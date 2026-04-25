@@ -95,6 +95,19 @@ export function loadConfig(
 
   const config = validated.data as AlduinConfig;
 
+  // Guard: webhook mode is no longer supported (plan item #5).
+  // A hand-edited config.yaml with mode: webhook must be fixed before startup.
+  if (config.channels?.telegram?.mode === 'webhook') {
+    return err({
+      message:
+        'Telegram webhook mode is no longer supported. Alduin uses long-poll exclusively.\n' +
+        "Run `alduin reconfigure` (Telegram section) to fix, or\n" +
+        '`alduin config set channels.telegram.mode longpoll`.',
+      code: 'validation_error',
+      field: 'channels.telegram.mode',
+    });
+  }
+
   // Warn about missing environment variables — don't fail
   for (const [providerName, providerCfg] of Object.entries(config.providers)) {
     if (providerCfg.api_key_env && !env[providerCfg.api_key_env]) {
