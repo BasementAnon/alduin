@@ -15,8 +15,10 @@ export const routingConfigSchema = z.object({
 export type RoutingConfig = z.output<typeof routingConfigSchema>;
 
 export const budgetConfigSchema = z.object({
-  daily_limit_usd: z.number().positive('daily_limit_usd must be a positive number'),
-  per_task_limit_usd: z.number().positive('per_task_limit_usd must be a positive number'),
+  /** 0 means "no daily cap" (disabled). Positive values enforce a daily limit. */
+  daily_limit_usd: z.number().min(0, 'daily_limit_usd must be >= 0'),
+  /** 0 means "no per-task cap" (disabled). Positive values enforce a per-task limit. */
+  per_task_limit_usd: z.number().min(0, 'per_task_limit_usd must be >= 0'),
   /** Fraction of daily_limit at which warnings are emitted (0–1). */
   warning_threshold: z
     .number()

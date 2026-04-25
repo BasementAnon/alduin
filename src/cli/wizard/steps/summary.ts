@@ -35,9 +35,11 @@ export function formatSummary(state: WizardState, catalog: ModelCatalog | null):
   lines.push(`│  Quick:         ${a.quick}`);
 
   lines.push('├─ Budget ──────────────────────────────────────────');
-  lines.push(`│  Daily limit:   $${state.budget.dailyLimitUsd.toFixed(2)}`);
-  lines.push(`│  Per-task:      $${state.budget.perTaskLimitUsd.toFixed(2)}`);
-  lines.push(`│  Warning at:    ${(state.budget.warningThreshold * 100).toFixed(0)}%`);
+  lines.push(`│  Daily limit:   ${state.budget.dailyLimitUsd === 0 ? 'unlimited (no daily cap)' : '$' + state.budget.dailyLimitUsd.toFixed(2)}`);
+  lines.push(`│  Per-task:      ${state.budget.perTaskLimitUsd === 0 ? 'unlimited (no per-task cap)' : '$' + state.budget.perTaskLimitUsd.toFixed(2)}`);
+  if (state.budget.dailyLimitUsd > 0) {
+    lines.push(`│  Warning at:    ${(state.budget.warningThreshold * 100).toFixed(0)}%`);
+  }
   if (state.budget.perModelLimits) {
     for (const [model, limit] of Object.entries(state.budget.perModelLimits)) {
       lines.push(`│    ${model}: $${limit.toFixed(2)}/day`);
@@ -76,12 +78,14 @@ export function formatSummary(state: WizardState, catalog: ModelCatalog | null):
     lines.push(`│  Tenant:        ${state.owner.tenantId}`);
   }
 
-  // Monthly cost estimate
-  const monthlyEstimate = estimateMonthlyCost(state, catalog);
-  if (monthlyEstimate !== null) {
-    lines.push('├─ Cost Estimate ───────────────────────────────────');
-    lines.push(`│  Max monthly:   ~$${monthlyEstimate.toFixed(2)}`);
-    lines.push(`│  (at full daily utilization of $${state.budget.dailyLimitUsd.toFixed(2)}/day × 30)`);
+  // Monthly cost estimate (only when a daily limit is set)
+  if (state.budget.dailyLimitUsd > 0) {
+    const monthlyEstimate = estimateMonthlyCost(state, catalog);
+    if (monthlyEstimate !== null) {
+      lines.push('├─ Cost Estimate ───────────────────────────────────');
+      lines.push(`│  Max monthly:   ~$${monthlyEstimate.toFixed(2)}`);
+      lines.push(`│  (at full daily utilization of $${state.budget.dailyLimitUsd.toFixed(2)}/day × 30)`);
+    }
   }
 
   lines.push('└───────────────────────────────────────────────────');

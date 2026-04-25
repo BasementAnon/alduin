@@ -56,4 +56,21 @@ describe('buildBudgetConfig', () => {
     expect(b.warning_threshold).toBeGreaterThanOrEqual(0);
     expect(b.warning_threshold).toBeLessThanOrEqual(1);
   });
+
+  it('accepts daily_limit_usd = 0 (no daily cap)', () => {
+    const b = buildBudgetConfig({ dailyLimitUsd: 0, warningThreshold: 0, perTaskLimitUsd: 0.5 });
+    expect(b.daily_limit_usd).toBe(0);
+    expect(b.per_task_limit_usd).toBe(0.5);
+  });
+
+  it('accepts per_task_limit_usd = 0 (no per-task cap)', () => {
+    const b = buildBudgetConfig({ dailyLimitUsd: 10, warningThreshold: 0.8, perTaskLimitUsd: 0 });
+    expect(b.per_task_limit_usd).toBe(0);
+  });
+
+  it('accepts both limits as 0 (fully unlimited)', () => {
+    const b = buildBudgetConfig({ dailyLimitUsd: 0, warningThreshold: 0, perTaskLimitUsd: 0 });
+    expect(b.daily_limit_usd).toBe(0);
+    expect(b.per_task_limit_usd).toBe(0);
+  });
 });
