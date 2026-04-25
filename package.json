@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build:sdk": "npm run build --workspace=@alduin/plugin-sdk",
-    "build": "npm run build:sdk && tsc && chmod +x dist/cli.js alduin && (npm link --silent >/dev/null 2>&1 && echo '✓ alduin linked globally — run: alduin <command>' || echo '⚠ could not auto-link alduin globally (permission?); use ./alduin <command> from the project root, or run: sudo npm link')",
+    "build": "npm run build:sdk && tsc && chmod +x dist/cli.js alduin && (npm link --save=false --silent >/dev/null 2>&1 && echo '✓ alduin linked globally — run: alduin <command>' || echo '⚠ could not auto-link alduin globally (permission?); use ./alduin <command> from the project root, or run: sudo npm link')",
     "postbuild": "cp src/catalog/models.catalog.json dist/catalog/ && node scripts/postbuild-banner.js",
     "dev": "tsx src/cli.ts",
     "dev:telegram": "tsx src/dev-telegram.ts",

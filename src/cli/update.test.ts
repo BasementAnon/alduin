@@ -51,7 +51,7 @@ function setupGitEnv(opts: {
 
   mockExecSync.mockImplementation((cmd: unknown) => {
     const c = String(cmd);
-    if (c.includes('status --porcelain')) return opts.dirty ? 'M src/cli.ts\n' : '';
+    if (c.includes('diff-index --name-only HEAD')) return opts.dirty ? 'src/cli.ts\n' : '';
     if (c.includes('rev-parse HEAD') && !c.includes('abbrev-ref')) return opts.head ?? 'abc123def456';
     if (c.includes('fetch --tags')) return '';
     if (c.includes('abbrev-ref')) return 'origin/main';

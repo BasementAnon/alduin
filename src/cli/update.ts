@@ -60,13 +60,22 @@ export async function handleUpdateCommand(_args: string[]): Promise<void> {
     }
   };
 
-  // 2. Reject dirty working tree
-  const statusOutput = run('git status --porcelain', { capture: true });
-  if (statusOutput.trim().length > 0) {
-    console.error(
-      'Working tree dirty — commit or stash before updating.\n\n' + statusOutput
-    );
-    process.exit(1);
+  // 2. Reject dirty working tree (tracked changes only — ignores untracked files
+  //    and lockfile churn from npm link so builds don't block the next update)
+  const trackedDiff = run('git diff-index --name-only HEAD --', { capture: true });
+  if (trackedDiff.trim().length > 0) {
+    // Filter out package-lock.json if it's the only dirty file (npm link artefact)
+    const dirtyFiles = trackedDiff.trim().split('\n').filter(Boolean);
+    const meaningful = dirtyFiles.filter((f) => f !== 'package-lock.json');
+    if (meaningful.length > 0) {
+      console.error(
+        'Working tree dirty — commit or stash before updating.\n\n' +
+          dirtyFiles.join('\n')
+      );
+      process.exit(1);
+    }
+    // Only package-lock.json is dirty — restore it so the pull is clean
+    run('git checkout -- package-lock.json');
   }
 
   // 3. Record current HEAD
