@@ -1,7 +1,15 @@
+/**
+ * Tests for the legacy pick-channel.ts builder (kept for historical
+ * reference — the active wizard uses src/cli/wizard/steps/channel.ts).
+ *
+ * Note: the new channel.ts::buildChannelConfig always hard-codes longpoll
+ * (webhook mode was removed from the user journey in plan item #5).
+ */
 import { describe, it, expect } from 'vitest';
 import { buildChannelConfig } from './pick-channel.js';
+import { buildChannelConfig as buildChannelConfigNew } from './channel.js';
 
-describe('buildChannelConfig', () => {
+describe('buildChannelConfig (legacy pick-channel.ts)', () => {
   it('returns empty object for CLI channel', () => {
     const result = buildChannelConfig({ channel: 'cli', mode: 'longpoll' });
     expect(result).toEqual({});
@@ -18,7 +26,7 @@ describe('buildChannelConfig', () => {
     });
   });
 
-  it('builds webhook telegram config with correct path appended', () => {
+  it('builds webhook telegram config with correct path appended (legacy only)', () => {
     const result = buildChannelConfig({
       channel: 'telegram',
       mode: 'webhook',
@@ -30,7 +38,7 @@ describe('buildChannelConfig', () => {
     expect(result.telegram?.token_env).toBe('TELEGRAM_BOT_TOKEN');
   });
 
-  it('strips trailing slash from webhookUrl before appending path', () => {
+  it('strips trailing slash from webhookUrl before appending path (legacy only)', () => {
     const result = buildChannelConfig({
       channel: 'telegram',
       mode: 'webhook',
@@ -54,5 +62,38 @@ describe('buildChannelConfig', () => {
     });
     expect(longpoll.telegram?.enabled).toBe(true);
     expect(webhook.telegram?.enabled).toBe(true);
+  });
+});
+
+describe('buildChannelConfig (active channel.ts — long-poll only)', () => {
+  it('returns empty object for CLI channel', () => {
+    const result = buildChannelConfigNew({ channel: 'cli', mode: 'longpoll' });
+    expect(result).toEqual({});
+  });
+
+  it('always hard-codes longpoll regardless of answers.mode', () => {
+    const result = buildChannelConfigNew({ channel: 'telegram', mode: 'longpoll' });
+    expect(result.telegram?.mode).toBe('longpoll');
+  });
+
+  it('never emits webhook_url or webhook_secret_env', () => {
+    // Even if answers had mode: webhook (legacy data), builder ignores it
+    const result = buildChannelConfigNew({
+      channel: 'telegram',
+      mode: 'webhook' as 'longpoll',
+      webhookUrl: 'https://bot.example.com',
+    });
+    expect(result.telegram?.mode).toBe('longpoll');
+    expect(result.telegram?.webhook_url).toBeUndefined();
+    expect(result.telegram?.webhook_secret_env).toBeUndefined();
+  });
+
+  it('includes allowedUserIds when provided', () => {
+    const result = buildChannelConfigNew({
+      channel: 'telegram',
+      mode: 'longpoll',
+      allowedUserIds: [123456789],
+    });
+    expect(result.telegram?.allowed_user_ids).toEqual([123456789]);
   });
 });

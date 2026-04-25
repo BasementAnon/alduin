@@ -51,12 +51,9 @@ export function formatSummary(state: WizardState, catalog: ModelCatalog | null):
     lines.push('│  CLI only');
   } else {
     lines.push(`│  Channel:       ${state.channel.channel}`);
-    lines.push(`│  Mode:          ${state.channel.mode}`);
+    lines.push(`│  Receive mode:  long-poll (fixed)`);
     if (state.channel.botUsername) {
       lines.push(`│  Bot:           @${state.channel.botUsername}`);
-    }
-    if (state.channel.webhookUrl) {
-      lines.push(`│  Webhook URL:   ${state.channel.webhookUrl}`);
     }
     if (state.channel.allowedUserIds && state.channel.allowedUserIds.length > 0) {
       lines.push(`│  Allowed users: ${state.channel.allowedUserIds.join(', ')}`);

@@ -5,14 +5,13 @@
  * unified step that:
  *   - Asks CLI / Telegram / Both
  *   - Collects and validates Telegram bot token (format + getMe API call)
- *   - Asks longpoll vs webhook (with webhook URL + auto-generated secret)
+ *   - Hard-codes long-poll mode (webhook removed from user journey — see plan item #5)
  *   - Asks about user ID allowlisting for security
  *   - Shows BotFather security recommendations
  *   - Writes validated tokens to vault immediately
  */
 
-import { confirm, log, multiselect, note, password, select, spinner, text } from '@clack/prompts';
-import { randomBytes } from 'node:crypto';
+import { confirm, log, note, password, select, spinner, text } from '@clack/prompts';
 import type { CredentialVault } from '../../../secrets/vault.js';
 import type { ChannelsConfig, TelegramChannelConfig } from '../../../config/schema/index.js';
 import { guard } from '../helpers.js';
@@ -67,17 +66,13 @@ export function buildChannelConfig(answers: ChannelAnswers): ChannelsConfig {
     return {};
   }
 
+  // Webhook mode is removed from the user journey (plan item #5).
+  // Hard-code longpoll — never emit webhook fields.
   const telegram: TelegramChannelConfig = {
     enabled: true,
-    mode: answers.mode,
+    mode: 'longpoll',
     token_env: 'TELEGRAM_BOT_TOKEN',
   };
-
-  if (answers.mode === 'webhook') {
-    const base = answers.webhookUrl ?? '';
-    telegram.webhook_url = base.replace(/\/$/, '') + '/webhooks/telegram';
-    telegram.webhook_secret_env = 'ALDUIN_WEBHOOK_SECRET';
-  }
 
   if (answers.allowedUserIds && answers.allowedUserIds.length > 0) {
     telegram.allowed_user_ids = answers.allowedUserIds;
@@ -98,15 +93,15 @@ export function writeChannelTokensToVault(
     if (answers.botToken) {
       vault.set(VAULT_SCOPE_TELEGRAM_TOKEN, answers.botToken);
     }
-    if (answers.webhookSecret) {
-      vault.set(VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET, answers.webhookSecret);
-    }
+    // VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET is kept exported for runtime/test
+    // compatibility but is never written from the wizard (webhook removed from
+    // user journey — plan item #5).
   });
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 
-export async function runChannelSetup(vault: CredentialVault): Promise<ChannelAnswers> {
+export async function runChannelSetup(vault: CredentialVault, existing?: Partial<ChannelAnswers>): Promise<ChannelAnswers> {
   const channelChoice = guard(
     await select<'telegram' | 'cli' | 'both'>({
       message: 'How will you interact with Alduin?',
@@ -174,66 +169,19 @@ export async function runChannelSetup(vault: CredentialVault): Promise<ChannelAn
     }
   }
 
-  // Deployment mode
-  answers.mode = guard(
-    await select<'longpoll' | 'webhook'>({
-      message: 'Deployment mode:',
-      options: [
-        {
-          label: 'Long-poll (development)',
-          value: 'longpoll',
-          hint: 'no public URL needed — great for local dev',
-        },
-        {
-          label: 'Webhook (production)',
-          value: 'webhook',
-          hint: 'requires a reachable public HTTPS URL',
-        },
-      ],
-    })
+  // Receive mode — long-poll only (webhook removed from user journey, plan item #5)
+  answers.mode = 'longpoll';
+  note(
+    'Receive mode\n\n' +
+      '  Alduin uses long-poll for Telegram. It keeps a single HTTPS\n' +
+      '  request open to Telegram for up to 30s; the moment a message\n' +
+      '  arrives, Telegram responds and Alduin reopens the request.\n' +
+      '  New-message latency on an active chat is effectively zero,\n' +
+      '  and no public URL or webhook secret is needed.\n\n' +
+      'This is fixed — webhook mode has been removed from the setup\n' +
+      'flow because it only matters past ~5K updates/hour.',
+    'Receive mode'
   );
-
-  if (answers.mode === 'webhook') {
-    answers.webhookUrl = guard(
-      await text({
-        message: 'Public webhook base URL:',
-        placeholder: 'https://bot.example.com',
-        validate: (v) => {
-          if (!v || !v.startsWith('https://')) return 'URL must start with https://';
-          return undefined;
-        },
-      })
-    );
-
-    // Auto-generate webhook secret
-    const autoGenerate = guard(
-      await confirm({
-        message: 'Auto-generate a webhook secret? (recommended)',
-        initialValue: true,
-      })
-    );
-
-    if (autoGenerate) {
-      answers.webhookSecret = randomBytes(32).toString('hex');
-      log.success('Webhook secret auto-generated (will be stored in vault).');
-    } else {
-      const customSecret = guard(
-        await password({
-          message: 'Custom webhook secret:',
-          mask: '*',
-          validate: (v) => {
-            if (!v || v.trim().length < 16) return 'Secret must be at least 16 characters';
-            return undefined;
-          },
-        })
-      );
-      answers.webhookSecret = customSecret.trim();
-    }
-
-    // Write webhook secret to vault (tracked for Ctrl-C cleanup)
-    vault.set(VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET, answers.webhookSecret);
-    trackVaultScope(VAULT_SCOPE_TELEGRAM_WEBHOOK_SECRET);
-  }
 
   // Security: allowed_user_ids
   const restrictUsers = guard(
