@@ -129,3 +129,6 @@ quick heuristic:
 
 *For the full system design — session resolver, ingestion pipeline, memory
 tiers, plugin host, policy engine, audit log — see [ARCHITECTURE.md](ARCHITECTURE.md).*
+
+---
+*Last reviewed: 2026-04-25*
