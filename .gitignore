@@ -34,3 +34,6 @@ config.yaml
 # AI tooling config
 .cursorrules
 .cursor/
+
+# Implementation plans (untracked — stored locally only)
+docs/plans/
