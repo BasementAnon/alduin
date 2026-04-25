@@ -204,6 +204,20 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Handle `start` subcommand — boots the full two-plane runtime
+  if (positionalArgs[0] === 'start') {
+    const { handleStartCommand } = await import('./cli/start.js');
+    await handleStartCommand(positionalArgs.slice(1), configPath);
+    return;
+  }
+
+  // Handle `restart` subcommand (e.g. `alduin restart gateway`)
+  if (positionalArgs[0] === 'restart') {
+    const { handleRestartCommand } = await import('./cli/restart.js');
+    await handleRestartCommand(positionalArgs.slice(1), configPath);
+    return;
+  }
+
   // Handle `telegram` subcommand
   if (positionalArgs[0] === 'telegram') {
     const { handleTelegramCommand } = await import('./cli/telegram.js');

@@ -84,15 +84,14 @@ The wizard (built with @clack/prompts, Ctrl-C at any step is safe):
 ## Running
 
 ```bash
-# Development (long-poll mode — no public URL needed)
+# Full runtime (Telegram long-poll + webhook gateway)
+alduin start
+
+# Restart after config changes
+alduin restart gateway
+
+# Development (CLI REPL only — no Telegram)
 alduin dev
-
-# With Telegram (requires TELEGRAM_BOT_TOKEN in env)
-TELEGRAM_BOT_TOKEN=<token> alduin dev:telegram
-
-# Production (non-Telegram workloads)
-npm run build
-node dist/cli.js --config config.yaml
 ```
 
 Alduin uses long-poll for Telegram. No public URL, webhook secret, or firewall configuration is required.
@@ -103,9 +102,11 @@ Alduin uses long-poll for Telegram. No public URL, webhook secret, or firewall c
 
 ```bash
 alduin init                     # first-run wizard
+alduin start                    # boot full runtime (Telegram + gateway)
+alduin restart gateway          # reload config and restart the runtime
 alduin reconfigure              # post-setup menu: change one section at a time
 alduin update                   # pull latest from origin/main, rebuild, optional restart
-alduin telegram restart         # restart the Telegram long-poll connection
+alduin telegram restart         # one-shot Telegram connectivity test
 alduin config                   # view/edit configuration (dotted-path access)
 alduin doctor                   # diagnose config issues (11 rules, auto-fix support)
 alduin models sync              # probe provider /models APIs, show new/removed
