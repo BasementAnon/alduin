@@ -102,15 +102,16 @@ Alduin uses long-poll for Telegram. No public URL, webhook secret, or firewall c
 ## CLI commands
 
 ```bash
-alduin init             # first-run wizard
-alduin reconfigure      # post-setup menu: change one section at a time
-alduin config           # view/edit configuration (dotted-path access)
-alduin doctor           # diagnose config issues (11 rules, auto-fix support)
-alduin models sync      # probe provider /models APIs, show new/removed
-alduin models diff      # compare current config pins vs. catalog
-alduin models upgrade   # propose new pins, run smoke tests, apply
-alduin skills list      # list available skills
-alduin skills run <id>  # execute a skill in its configured isolation environment
+alduin init                     # first-run wizard
+alduin reconfigure              # post-setup menu: change one section at a time
+alduin telegram restart         # restart the Telegram long-poll connection
+alduin config                   # view/edit configuration (dotted-path access)
+alduin doctor                   # diagnose config issues (11 rules, auto-fix support)
+alduin models sync              # probe provider /models APIs, show new/removed
+alduin models diff              # compare current config pins vs. catalog
+alduin models upgrade           # propose new pins, run smoke tests, apply
+alduin skills list              # list available skills
+alduin skills run <id>          # execute a skill in its configured isolation environment
 ```
 
 Model versions are **never auto-upgraded**. All changes go through `alduin models upgrade` and are logged to `.alduin/audit.log`.
@@ -134,6 +135,7 @@ All admin commands require `owner` or `admin` role.
 /alduin policy allow tool echo               allow a tool
 /alduin policy deny connector google-cal     deny a connector
 /alduin recursion on|off|status              toggle recursive sub-orchestration
+/alduin telegram restart                     restart Telegram long-poll connection
 /alduin trace <id|last>                      show trace (tree format for recursive)
 /alduin models list                          show configured models
 /alduin models sync                          sync model catalog

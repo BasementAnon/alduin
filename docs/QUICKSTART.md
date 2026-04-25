@@ -111,6 +111,7 @@ After `npm run build`, use `alduin <command>` from anywhere (or `./alduin <comma
 ```bash
 alduin init                # first-run wizard
 alduin reconfigure         # post-setup menu: change one section without re-running init
+alduin telegram restart    # restart the Telegram long-poll connection
 alduin config              # view/edit configuration
 alduin doctor              # diagnose config issues
 alduin models sync         # probe provider /models APIs

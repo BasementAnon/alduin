@@ -200,6 +200,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Handle `telegram` subcommand
+  if (positionalArgs[0] === 'telegram') {
+    const { handleTelegramCommand } = await import('./cli/telegram.js');
+    await handleTelegramCommand(positionalArgs.slice(1), configPath);
+    return;
+  }
+
   // Handle `models` subcommand before starting REPL
   if (positionalArgs[0] === 'models' && positionalArgs[1]) {
     const { handleModelsCommand } = await import('./cli/models.js');

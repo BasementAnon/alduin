@@ -42,6 +42,11 @@ export interface AdminDeps {
   catalog?: ModelCatalog;
   /** Optional: plugin registry for /alduin plugins list */
   pluginRegistry?: PluginRegistry;
+  /**
+   * Optional: restart the Telegram connection. Called by /alduin telegram restart.
+   * Returns a promise resolving to { botUsername } on success.
+   */
+  restartTelegram?: () => Promise<{ botUsername: string }>;
 }
 
 /**
@@ -82,6 +87,9 @@ export function handleAdminCommand(
     case 'recursion':
       return handleRecursion(parts.slice(2), ctx, deps);
 
+    case 'telegram':
+      return handleTelegram(parts.slice(2), ctx, deps);
+
     case 'models':
       return handleModels(parts.slice(2), ctx, deps);
 
@@ -109,6 +117,7 @@ export function handleAdminCommand(
           '  /alduin policy [show|allow|deny <skill|connector|tool> <name>]',
           '  /alduin trace <id|last>',
           '  /alduin recursion [on|off|status]',
+          '  /alduin telegram restart — restart Telegram long-poll connection',
           '  /alduin models [list|sync|diff|upgrade]',
           '  /alduin plugins [list|install <id>|remove <id>]',
           '  /alduin connect <connector_id>',
@@ -117,6 +126,49 @@ export function handleAdminCommand(
         ].join('\n'),
       };
   }
+}
+
+// ── telegram subcommand ───────────────────────────────────────────────────────
+
+function handleTelegram(
+  args: string[],
+  ctx: AdminCommandContext,
+  deps: AdminDeps
+): AdminCommandResult {
+  const action = args[0];
+
+  if (action !== 'restart') {
+    return {
+      handled: true,
+      reply: 'Usage: /alduin telegram restart',
+    };
+  }
+
+  if (!deps.restartTelegram) {
+    return {
+      handled: true,
+      reply: 'Telegram restart is not available in this session (no restartTelegram handler configured).',
+    };
+  }
+
+  // Kick off the async restart and return an immediate acknowledgement.
+  // The bot will log the result when the restart completes.
+  void deps.restartTelegram().then(({ botUsername }) => {
+    console.log(`[Telegram] Restarted as @${botUsername} (triggered by admin command)`);
+  }).catch((err: unknown) => {
+    console.error(`[Telegram] Restart failed: ${err instanceof Error ? err.message : String(err)}`);
+  });
+
+  deps.auditLog.log({
+    actor: ctx.user_id,
+    action: 'telegram.restart',
+    new_value: 'triggered via admin command',
+  });
+
+  return {
+    handled: true,
+    reply: 'Restarting Telegram connection... (long-poll mode)',
+  };
 }
 
 // ── forget subcommand ─────────────────────────────────────────────────────────

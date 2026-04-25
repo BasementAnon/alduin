@@ -122,6 +122,71 @@ export class TelegramAdapter implements ChannelAdapter {
     }
   }
 
+  /**
+   * Restart the Telegram connection.
+   *
+   * Always deletes any stale webhook first (cheap insurance against configs
+   * that predate plan item #5 removing webhook from the user journey), then
+   * restarts the long-poll loop.
+   */
+  async restart(): Promise<{ botUsername: string }> {
+    // Stop any running polling loop
+    if (this.bot.isRunning()) {
+      await this.bot.stop();
+    }
+
+    // Defensively clear any stale webhook left over from before long-poll was
+    // hard-coded (see plan item #5).
+    await this.bot.api.deleteWebhook();
+
+    // Re-create the bot instance so the polling loop is fresh
+    this.bot = new Bot(
+      this.config.token,
+      this.config._botInfo ? { botInfo: this.config._botInfo } : undefined
+    );
+    // Re-wire the event handler
+    const savedHandler = this.eventHandler;
+    this.bot.use((ctx) => {
+      const allowedIds = this.config.allowed_user_ids;
+      if (allowedIds && allowedIds.length > 0) {
+        const senderId = ctx.from?.id ?? null;
+        if (senderId === null || !allowedIds.includes(senderId)) {
+          console.warn(
+            `[Telegram] Rejected message from unauthorized Telegram user ${senderId ?? 'unknown'}`
+          );
+          return;
+        }
+      }
+      if (!this.eventHandler) return;
+      const raw: RawChannelEvent = {
+        channel: 'telegram',
+        received_at: new Date().toISOString(),
+        payload: ctx.update,
+      };
+      this.eventHandler(raw);
+    });
+    this.eventHandler = savedHandler;
+
+    // Start long-poll
+    let resolvedUsername = '';
+    await new Promise<void>((resolve) => {
+      void this.bot.start({
+        onStart: (info) => {
+          resolvedUsername = info.username;
+          console.log(`[Telegram] Long-poll restarted as @${info.username}`);
+          resolve();
+        },
+      });
+    });
+
+    return { botUsername: resolvedUsername };
+  }
+
+  /** Returns whether the grammY polling loop is currently running. */
+  isRunning(): boolean {
+    return this.bot.isRunning();
+  }
+
   async send(
     payload: PresentationPayload,
     target: ChannelTarget
