@@ -2,10 +2,15 @@ import { z } from 'zod';
 
 export const telegramChannelConfigSchema = z.object({
   enabled: z.boolean(),
-  mode: z.enum(['webhook', 'longpoll']),
+  /**
+   * Connection mode. Only long-poll is supported — webhook mode was removed.
+   * The schema enforces this so users get a clear Zod validation error
+   * ("Invalid enum value") instead of a cryptic runtime failure.
+   */
+  mode: z.enum(['longpoll']),
   /** Name of the env var holding the bot token. */
   token_env: z.string().min(1),
-  /** Webhook URL (required in webhook mode). */
+  /** Webhook URL — reserved for future use, not currently supported. */
   webhook_url: z.string().url().optional(),
   /** Name of the env var holding the webhook secret token. */
   webhook_secret_env: z.string().optional(),

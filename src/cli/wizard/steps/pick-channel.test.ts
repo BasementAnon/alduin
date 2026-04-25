@@ -26,13 +26,14 @@ describe('buildChannelConfig (legacy pick-channel.ts)', () => {
     });
   });
 
-  it('builds webhook telegram config with correct path appended (legacy only)', () => {
+  it('builds webhook-origin config but forces longpoll mode (legacy only)', () => {
     const result = buildChannelConfig({
       channel: 'telegram',
       mode: 'webhook',
       webhookUrl: 'https://bot.example.com',
     });
-    expect(result.telegram?.mode).toBe('webhook');
+    // Builder now always emits longpoll, but still sets webhook fields for legacy compat
+    expect(result.telegram?.mode).toBe('longpoll');
     expect(result.telegram?.webhook_url).toBe('https://bot.example.com/webhooks/telegram');
     expect(result.telegram?.webhook_secret_env).toBe('ALDUIN_WEBHOOK_SECRET');
     expect(result.telegram?.token_env).toBe('TELEGRAM_BOT_TOKEN');
@@ -55,13 +56,13 @@ describe('buildChannelConfig (legacy pick-channel.ts)', () => {
 
   it('always enables the telegram channel when channel is telegram', () => {
     const longpoll = buildChannelConfig({ channel: 'telegram', mode: 'longpoll' });
-    const webhook = buildChannelConfig({
+    const legacyWebhook = buildChannelConfig({
       channel: 'telegram',
       mode: 'webhook',
       webhookUrl: 'https://x.example.com',
     });
     expect(longpoll.telegram?.enabled).toBe(true);
-    expect(webhook.telegram?.enabled).toBe(true);
+    expect(legacyWebhook.telegram?.enabled).toBe(true);
   });
 });
 

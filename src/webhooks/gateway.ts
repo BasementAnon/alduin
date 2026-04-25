@@ -192,8 +192,11 @@ export class WebhookGateway {
       return;
     }
 
-    // Signature verification
-    if (!this.verifyRequest(adapter, req)) {
+    // Signature verification — fall back to isUnsignedAllowed() so that
+    // dev environments with ALDUIN_ENV=development + ALDUIN_ALLOW_UNSIGNED=1
+    // can accept unsigned webhook requests (e.g. when no webhook_secret is
+    // configured). Production always requires a valid signature.
+    if (!this.verifyRequest(adapter, req) && !this.isUnsignedAllowed()) {
       res.status(401).json({ error: 'Invalid signature' });
       return;
     }

@@ -147,7 +147,7 @@ budgets:
     }
   });
 
-  it('rejects config with channels.telegram.mode: webhook (plan item #5)', () => {
+  it('rejects config with channels.telegram.mode: webhook (schema-level)', () => {
     const yaml = `
 orchestrator:
   model: anthropic/claude-sonnet-4-6
@@ -185,8 +185,8 @@ channels:
       const result = loadConfig(tmpPath);
       expect(result.ok).toBe(false);
       if (!result.ok) {
+        // Now caught by Zod schema validation (mode only accepts 'longpoll')
         expect(result.error.code).toBe('validation_error');
-        expect(result.error.message).toContain('webhook mode is no longer supported');
         expect(result.error.field).toBe('channels.telegram.mode');
       }
     } finally {

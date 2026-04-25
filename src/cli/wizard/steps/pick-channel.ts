@@ -1,4 +1,4 @@
-import { log, select, text } from '@clack/prompts';
+import { log, select } from '@clack/prompts';
 import type { ChannelsConfig, TelegramChannelConfig } from '../../../config/schema/index.js';
 import { guard } from '../helpers.js';
 import type { ChannelAnswers } from '../types.js';
@@ -7,6 +7,11 @@ import type { ChannelAnswers } from '../types.js';
 
 /**
  * Build the `channels` section of AlduinConfig from wizard answers.
+ *
+ * Legacy builder — kept for backward compatibility. Webhook mode is no longer
+ * supported, so this always emits `mode: 'longpoll'` regardless of the input.
+ * Webhook-related fields (webhook_url, webhook_secret_env) are only set when
+ * the caller explicitly passes mode: 'webhook' (legacy data paths).
  *
  * @param answers - Channel, mode, and optional webhook URL from the wizard.
  * @returns Partial channels config ready to merge into the root config.
@@ -18,7 +23,7 @@ export function buildChannelConfig(answers: ChannelAnswers): ChannelsConfig {
 
   const telegram: TelegramChannelConfig = {
     enabled: true,
-    mode: answers.mode,
+    mode: 'longpoll',
     token_env: 'TELEGRAM_BOT_TOKEN',
   };
 
@@ -54,37 +59,8 @@ export async function runPickChannel(): Promise<ChannelAnswers> {
     return { channel: 'cli', mode: 'longpoll' };
   }
 
-  const mode = guard(
-    await select<'longpoll' | 'webhook'>({
-      message: 'Deployment mode:',
-      options: [
-        {
-          label: 'Long-poll',
-          value: 'longpoll',
-          hint: 'dev / behind NAT — no public URL needed',
-        },
-        {
-          label: 'Webhook',
-          value: 'webhook',
-          hint: 'prod — requires a reachable public HTTPS URL',
-        },
-      ],
-    })
-  );
+  // Webhook mode was removed — long-poll is the only supported mode.
+  const mode = 'longpoll' as const;
 
-  let webhookUrl: string | undefined;
-  if (mode === 'webhook') {
-    webhookUrl = guard(
-      await text({
-        message: 'Public webhook base URL:',
-        placeholder: 'https://bot.example.com',
-        validate: (v) => {
-          if (!v || !v.startsWith('https://')) return 'URL must start with https://';
-          return undefined;
-        },
-      })
-    );
-  }
-
-  return { channel, mode, webhookUrl };
+  return { channel, mode };
 }

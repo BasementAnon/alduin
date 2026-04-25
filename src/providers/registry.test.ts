@@ -141,9 +141,8 @@ describe('scrubSecretEnv', () => {
       channels: {
         telegram: {
           enabled: true,
-          mode: 'webhook',
+          mode: 'longpoll',
           token_env: 'TELEGRAM_BOT_TOKEN',
-          webhook_url: 'https://example.com/webhook',
           webhook_secret_env: 'TELEGRAM_WEBHOOK_SECRET',
         },
       },
@@ -206,9 +205,8 @@ describe('scrubSecretEnv', () => {
       channels: {
         telegram: {
           enabled: true,
-          mode: 'webhook',
+          mode: 'longpoll',
           token_env: 'TELEGRAM_BOT_TOKEN',
-          webhook_url: 'https://example.com/webhook',
           webhook_secret_env: 'TELEGRAM_WEBHOOK_SECRET',
         },
       },
