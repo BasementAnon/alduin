@@ -207,6 +207,13 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Handle `update` subcommand
+  if (positionalArgs[0] === 'update') {
+    const { handleUpdateCommand } = await import('./cli/update.js');
+    await handleUpdateCommand(positionalArgs.slice(1));
+    return;
+  }
+
   // Handle `models` subcommand before starting REPL
   if (positionalArgs[0] === 'models' && positionalArgs[1]) {
     const { handleModelsCommand } = await import('./cli/models.js');
